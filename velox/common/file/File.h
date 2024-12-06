@@ -36,6 +36,7 @@
 
 #include <folly/Range.h>
 #include <folly/futures/Future.h>
+#include <folly/io/IOBuf.h>
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/file/Region.h"
