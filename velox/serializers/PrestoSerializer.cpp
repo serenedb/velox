@@ -4519,7 +4519,7 @@ class PrestoVectorLexer {
   using TokenType = PrestoVectorSerde::TokenType;
 
   explicit PrestoVectorLexer(std::string_view source)
-      : source_(source), committedPtr_(source.begin()) {}
+      : source_(source), committedPtr_(source.data()) {}
 
   Status lex(std::vector<Token>& out) && {
     VELOX_RETURN_NOT_OK(lexHeader());
@@ -4781,7 +4781,7 @@ class PrestoVectorLexer {
   }
 
   void commit(TokenType tokenType) {
-    const auto newPtr = source_.begin();
+    const auto newPtr = source_.data();
     assert(committedPtr_ <= newPtr);
     assert(
         int64_t(newPtr - committedPtr_) <=

@@ -23,7 +23,17 @@ namespace facebook::velox::exec {
 
 enum PolicyType { LegacyCastPolicy = 1, PrestoCastPolicy, SparkCastPolicy };
 
-fmt::underlying_t<PolicyType> format_as(PolicyType f);
+} // namespace facebook::velox::exec
+
+template <>
+struct std::formatter<facebook::velox::exec::PolicyType> : formatter<int> {
+  template <typename FormatContext>
+  auto format(facebook::velox::exec::PolicyType t, FormatContext& ctx) const {
+    return formatter<int>::format(static_cast<int>(t), ctx);
+  }
+};
+
+namespace facebook::velox::exec {
 
 /// This class provides cast hooks to allow different behaviors of CastExpr and
 /// SparkCastExpr. The main purpose is to create customized cast implementation
