@@ -186,11 +186,9 @@ void castToDate(
 
 class TimestampWithTimeZoneCastOperator : public exec::CastOperator {
  public:
-  static const std::shared_ptr<const CastOperator>& get() {
-    static const std::shared_ptr<const CastOperator> instance{
-        new TimestampWithTimeZoneCastOperator()};
-
-    return instance;
+  static std::shared_ptr<const CastOperator> get() {
+    static constexpr TimestampWithTimeZoneCastOperator kInstance;
+    return {std::shared_ptr<const CastOperator>{}, &kInstance};
   }
 
   bool isSupportedFromType(const TypePtr& other) const override {
