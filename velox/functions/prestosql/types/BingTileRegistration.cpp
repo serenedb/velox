@@ -26,11 +26,9 @@ namespace {
 
 class BingTileCastOperator : public exec::CastOperator {
  public:
-  static const std::shared_ptr<const CastOperator>& get() {
-    static const std::shared_ptr<const CastOperator> instance{
-        new BingTileCastOperator()};
-
-    return instance;
+  static std::shared_ptr<const CastOperator> get() {
+    static constexpr BingTileCastOperator kInstance;
+    return {std::shared_ptr<const CastOperator>{}, &kInstance};
   }
 
   bool isSupportedFromType(const TypePtr& other) const override {

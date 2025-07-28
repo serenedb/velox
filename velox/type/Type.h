@@ -636,13 +636,9 @@ class TypeBase : public Type {
 
   constexpr explicit TypeBase() : Type{KIND, false} {}
 
-  explicit TypeBase(bool providesCustomComparison)
-      : Type{KIND, providesCustomComparison} {
-    if (providesCustomComparison) {
-      VELOX_CHECK(
-          kindCanProvideCustomComparison<KIND>::value,
-          "Custom comparisons are only supported for primitive types that are fixed width.");
-    }
+  constexpr explicit TypeBase(std::true_type /*providesCustomComparison*/)
+      : Type{KIND, true} {
+    static_assert(kindCanProvideCustomComparison<KIND>::value);
   }
 
   bool isPrimitiveType() const override {
@@ -678,9 +674,10 @@ class TypeBase : public Type {
 template <TypeKind KIND>
 class CanProvideCustomComparisonType : public TypeBase<KIND> {
  public:
-  constexpr explicit CanProvideCustomComparisonType() = default;
+  explicit CanProvideCustomComparisonType() = default;
 
-  explicit CanProvideCustomComparisonType(bool providesCustomComparison)
+  constexpr explicit CanProvideCustomComparisonType(
+      std::true_type providesCustomComparison)
       : TypeBase<KIND>{providesCustomComparison} {}
 
   virtual int32_t compare(
@@ -704,9 +701,9 @@ class CanProvideCustomComparisonType : public TypeBase<KIND> {
 template <TypeKind KIND>
 class ScalarType : public CanProvideCustomComparisonType<KIND> {
  public:
-  constexpr explicit ScalarType() = default;
+  explicit ScalarType() = default;
 
-  explicit ScalarType(bool providesCustomComparison)
+  constexpr explicit ScalarType(std::true_type providesCustomComparison)
       : CanProvideCustomComparisonType<KIND>{providesCustomComparison} {}
 
   uint32_t size() const override {
@@ -869,9 +866,9 @@ std::pair<uint8_t, uint8_t> getDecimalPrecisionScale(const Type& type);
 
 class UnknownType : public CanProvideCustomComparisonType<TypeKind::UNKNOWN> {
  public:
-  constexpr explicit UnknownType() = default;
+  explicit UnknownType() = default;
 
-  explicit UnknownType(bool proivdesCustomComparison)
+  constexpr explicit UnknownType(std::true_type proivdesCustomComparison)
       : CanProvideCustomComparisonType<TypeKind::UNKNOWN>(
             proivdesCustomComparison) {}
 
@@ -1191,7 +1188,8 @@ class OpaqueType : public TypeBase<TypeKind::OPAQUE> {
   template <typename T>
   using DeserializeFunc = std::function<std::shared_ptr<T>(const std::string&)>;
 
-  explicit OpaqueType(const std::type_index& typeIndex);
+  constexpr explicit OpaqueType(std::type_index typeIndex)
+      : typeIndex_(typeIndex) {}
 
   uint32_t size() const override {
     return 0;
@@ -1205,7 +1203,7 @@ class OpaqueType : public TypeBase<TypeKind::OPAQUE> {
 
   bool equivalent(const Type& other) const override;
 
-  const std::type_index& typeIndex() const {
+  std::type_index typeIndex() const {
     return typeIndex_;
   }
 
@@ -1231,7 +1229,7 @@ class OpaqueType : public TypeBase<TypeKind::OPAQUE> {
   FOLLY_NOINLINE static std::shared_ptr<const OpaqueType> create() {
     /// static vars in templates are dangerous across DSOs, but it's just a
     /// performance optimization. Comparison looks at type_index anyway.
-    static const OpaqueType kInstance{std::type_index(typeid(Class))};
+    static constexpr OpaqueType kInstance{std::type_index(typeid(Class))};
     return {std::shared_ptr<const OpaqueType>{}, &kInstance};
   }
 
@@ -1303,10 +1301,9 @@ class IntervalDayTimeType : public BigintType {
   IntervalDayTimeType() = default;
 
  public:
-  static const std::shared_ptr<const IntervalDayTimeType>& get() {
-    static const std::shared_ptr<const IntervalDayTimeType> kType{
-        new IntervalDayTimeType()};
-    return kType;
+  static std::shared_ptr<const IntervalDayTimeType> get() {
+    static constexpr IntervalDayTimeType kInstance;
+    return {std::shared_ptr<const IntervalDayTimeType>{}, &kInstance};
   }
 
   const char* name() const override {
@@ -1340,7 +1337,7 @@ class IntervalDayTimeType : public BigintType {
   }
 };
 
-FOLLY_ALWAYS_INLINE const std::shared_ptr<const IntervalDayTimeType>&
+FOLLY_ALWAYS_INLINE std::shared_ptr<const IntervalDayTimeType>
 INTERVAL_DAY_TIME() {
   return IntervalDayTimeType::get();
 }
@@ -1357,10 +1354,9 @@ class IntervalYearMonthType : public IntegerType {
   IntervalYearMonthType() = default;
 
  public:
-  static const std::shared_ptr<const IntervalYearMonthType>& get() {
-    static const std::shared_ptr<const IntervalYearMonthType> kType{
-        new IntervalYearMonthType()};
-    return kType;
+  static std::shared_ptr<const IntervalYearMonthType> get() {
+    static constexpr IntervalYearMonthType kInstance;
+    return {std::shared_ptr<const IntervalYearMonthType>{}, &kInstance};
   }
 
   const char* name() const override {
@@ -1393,7 +1389,7 @@ class IntervalYearMonthType : public IntegerType {
   }
 };
 
-FOLLY_ALWAYS_INLINE const std::shared_ptr<const IntervalYearMonthType>&
+FOLLY_ALWAYS_INLINE std::shared_ptr<const IntervalYearMonthType>
 INTERVAL_YEAR_MONTH() {
   return IntervalYearMonthType::get();
 }
@@ -1409,9 +1405,9 @@ class DateType : public IntegerType {
   DateType() = default;
 
  public:
-  static const std::shared_ptr<const DateType>& get() {
-    static const std::shared_ptr<const DateType> kType{new DateType()};
-    return kType;
+  static std::shared_ptr<const DateType> get() {
+    static constexpr DateType kInstance;
+    return {std::shared_ptr<const DateType>{}, &kInstance};
   }
 
   const char* name() const override {
@@ -1448,7 +1444,7 @@ class DateType : public IntegerType {
   }
 };
 
-FOLLY_ALWAYS_INLINE const std::shared_ptr<const DateType>& DATE() {
+FOLLY_ALWAYS_INLINE std::shared_ptr<const DateType> DATE() {
   return DateType::get();
 }
 
@@ -1486,7 +1482,7 @@ struct TypeFactory {
 template <>
 struct TypeFactory<TypeKind::UNKNOWN> {
   FOLLY_NOINLINE static std::shared_ptr<const UnknownType> create() {
-    static const UnknownType kInstance;
+    static constexpr UnknownType kInstance;
     return {std::shared_ptr<const UnknownType>{}, &kInstance};
   }
 };
