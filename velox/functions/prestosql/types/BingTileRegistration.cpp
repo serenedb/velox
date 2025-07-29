@@ -16,7 +16,6 @@
 
 #include "velox/functions/prestosql/types/BingTileRegistration.h"
 
-#include "velox/common/fuzzer/ConstrainedGenerators.h"
 #include "velox/expression/CastExpr.h"
 #include "velox/functions/prestosql/types/BingTileType.h"
 
@@ -130,8 +129,7 @@ class BingTileTypeFactories : public CustomTypeFactories {
 
   AbstractInputGeneratorPtr getInputGenerator(
       const InputGeneratorConfig& config) const override {
-    return std::make_shared<fuzzer::BingTileInputGenerator>(
-        config.seed_, BINGTILE(), config.nullRatio_);
+    return nullptr;
   }
 };
 
