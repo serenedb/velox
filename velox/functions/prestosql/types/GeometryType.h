@@ -26,10 +26,9 @@ class GeometryType : public VarbinaryType {
   GeometryType() = default;
 
  public:
-  static const std::shared_ptr<const GeometryType>& get() {
-    static const std::shared_ptr<const GeometryType> instance{
-        new GeometryType()};
-    return instance;
+  static std::shared_ptr<const GeometryType> get() {
+    static constexpr GeometryType kInstance;
+    return {std::shared_ptr<const GeometryType>{}, &kInstance};
   }
 
   bool equivalent(const Type& other) const override {

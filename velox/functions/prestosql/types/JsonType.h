@@ -25,10 +25,9 @@ class JsonType : public VarcharType {
   JsonType() = default;
 
  public:
-  static const std::shared_ptr<const JsonType>& get() {
-    static const std::shared_ptr<const JsonType> instance{new JsonType()};
-
-    return instance;
+  static std::shared_ptr<const JsonType> get() {
+    static constexpr const JsonType kInstance;
+    return {std::shared_ptr<const JsonType>{}, &kInstance};
   }
 
   bool equivalent(const Type& other) const override {

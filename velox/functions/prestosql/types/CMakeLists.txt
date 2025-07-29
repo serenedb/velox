@@ -43,5 +43,3 @@ velox_link_libraries(
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()
-
-add_subdirectory(fuzzer_utils)

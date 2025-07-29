@@ -24,11 +24,9 @@ class SfmSketchType : public VarbinaryType {
   SfmSketchType() = default;
 
  public:
-  static const std::shared_ptr<const SfmSketchType>& get() {
-    static const std::shared_ptr<const SfmSketchType> instance{
-        new SfmSketchType()};
-
-    return instance;
+  static std::shared_ptr<const SfmSketchType> get() {
+    static constexpr SfmSketchType kInstance;
+    return {std::shared_ptr<const SfmSketchType>{}, &kInstance};
   }
 
   bool equivalent(const Type& other) const override {

@@ -16,10 +16,4 @@
 
 #include "CastHooks.h"
 
-namespace facebook::velox::exec {
-
-fmt::underlying_t<PolicyType> format_as(PolicyType f) {
-  return fmt::underlying(f);
-}
-
-} // namespace facebook::velox::exec
+namespace facebook::velox::exec {} // namespace facebook::velox::exec

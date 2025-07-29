@@ -101,11 +101,9 @@ class IPPrefixType : public RowType {
             {IPADDRESS(), TINYINT()}) {}
 
  public:
-  static const std::shared_ptr<const IPPrefixType>& get() {
-    static const std::shared_ptr<const IPPrefixType> instance{
-        new IPPrefixType()};
-
-    return instance;
+  static std::shared_ptr<const IPPrefixType> get() {
+    static const IPPrefixType kInstance;
+    return {std::shared_ptr<const IPPrefixType>{}, &kInstance};
   }
 
   bool equivalent(const Type& other) const override {
