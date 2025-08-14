@@ -13,9 +13,6 @@
 # limitations under the License.
 cmake_minimum_required(VERSION 3.28)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
-set(CMAKE_CXX_EXTENSIONS ON) # Big Int is an extension
 message(STATUS "CXX standard: ${CMAKE_CXX_STANDARD}")
 
 # The policy allows us to change options without caching.
@@ -240,10 +237,6 @@ if(DEFINED ENV{INSTALL_PREFIX})
   include_directories(BEFORE "$ENV{INSTALL_PREFIX}/include")
 endif()
 
-# We look for OpenSSL here to cache the result enforce the version across our
-# dependencies.
-find_package(OpenSSL REQUIRED)
-
 if(VELOX_ENABLE_CCACHE
    AND NOT CMAKE_C_COMPILER_LAUNCHER
    AND NOT CMAKE_CXX_COMPILER_LAUNCHER
@@ -322,9 +315,6 @@ if(UNIX AND NOT APPLE)
   add_link_options("-Wl,-export-dynamic")
 endif()
 
-# Required so velox code can be used in a dynamic library
-set(CMAKE_POSITION_INDEPENDENT_CODE TRUE)
-
 # For C++20 support we need GNU GCC11 (or later versions) or Clang/AppleClang 15
 # (or later versions) to get support for the used features.
 if(NOT
@@ -338,10 +328,6 @@ if(NOT
       "Unsupported compiler ${CMAKE_CXX_COMPILER_ID} with version ${CMAKE_CXX_COMPILER_VERSION} found."
   )
 endif()
-
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
-set(CMAKE_CXX_EXTENSIONS ON) # Big Int is an extension
 
 execute_process(
   COMMAND
@@ -507,7 +493,7 @@ if(NOT TARGET gflags::gflags)
   add_library(gflags::gflags ALIAS gflags_gflags)
 endif()
 
-if(${gflags_SOURCE} STREQUAL "BUNDLED")
+if(gflags_SOURCE STREQUAL "BUNDLED")
   # we force glog from source to avoid issues with a system version built
   # against another gflags version (which is likely)
   set(glog_SOURCE BUNDLED)
@@ -644,7 +630,6 @@ if(CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
 endif()
 find_package(BISON 3.0.4 REQUIRED)
 find_package(FLEX 2.5.13 REQUIRED)
-find_package(double-conversion 3.1.5 REQUIRED)
 
 include_directories(SYSTEM velox)
 include_directories(SYSTEM velox/external)

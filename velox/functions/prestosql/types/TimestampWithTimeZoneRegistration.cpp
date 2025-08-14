@@ -19,7 +19,6 @@
 #include "velox/expression/CastExpr.h"
 #include "velox/functions/lib/DateTimeFormatter.h"
 #include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
-#include "velox/functions/prestosql/types/fuzzer_utils/TimestampWithTimeZoneInputGenerator.h"
 #include "velox/type/tz/TimeZoneMap.h"
 
 namespace facebook::velox {
@@ -186,11 +185,9 @@ void castToDate(
 
 class TimestampWithTimeZoneCastOperator : public exec::CastOperator {
  public:
-  static const std::shared_ptr<const CastOperator>& get() {
-    static const std::shared_ptr<const CastOperator> instance{
-        new TimestampWithTimeZoneCastOperator()};
-
-    return instance;
+  static std::shared_ptr<const CastOperator> get() {
+    static constexpr TimestampWithTimeZoneCastOperator kInstance;
+    return {std::shared_ptr<const CastOperator>{}, &kInstance};
   }
 
   bool isSupportedFromType(const TypePtr& other) const override {
@@ -289,8 +286,7 @@ class TimestampWithTimeZoneTypeFactories : public CustomTypeFactories {
 
   AbstractInputGeneratorPtr getInputGenerator(
       const InputGeneratorConfig& config) const override {
-    return std::make_shared<fuzzer::TimestampWithTimeZoneInputGenerator>(
-        config.seed_, config.nullRatio_);
+    return nullptr;
   }
 };
 } // namespace

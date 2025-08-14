@@ -24,11 +24,9 @@ class HyperLogLogType : public VarbinaryType {
   HyperLogLogType() = default;
 
  public:
-  static const std::shared_ptr<const HyperLogLogType>& get() {
-    static const std::shared_ptr<const HyperLogLogType> instance =
-        std::shared_ptr<HyperLogLogType>(new HyperLogLogType());
-
-    return instance;
+  static std::shared_ptr<const HyperLogLogType> get() {
+    static constexpr HyperLogLogType kInstance;
+    return {std::shared_ptr<const HyperLogLogType>{}, &kInstance};
   }
 
   bool equivalent(const Type& other) const override {

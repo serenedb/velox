@@ -28,10 +28,9 @@ class UuidType : public HugeintType {
   UuidType() = default;
 
  public:
-  static const std::shared_ptr<const UuidType>& get() {
-    static const std::shared_ptr<const UuidType> instance{new UuidType()};
-
-    return instance;
+  static std::shared_ptr<const UuidType> get() {
+    static constexpr UuidType kInstance;
+    return {std::shared_ptr<const UuidType>{}, &kInstance};
   }
 
   bool equivalent(const Type& other) const override {

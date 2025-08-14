@@ -19,14 +19,11 @@ namespace facebook::velox::common {
 
 Tokenizer::Tokenizer(
     const std::string& path,
-    const std::shared_ptr<Separators>& separators)
-    : path_(path), separators_(separators) {
-  state = State::kNotReady;
-  index_ = 0;
-}
+    std::shared_ptr<const Separators> separators)
+    : path_{path}, separators_{std::move(separators)} {}
 
 bool Tokenizer::hasNext() {
-  switch (state) {
+  switch (state_) {
     case State::kDone:
       return false;
     case State::kReady:
@@ -43,7 +40,7 @@ std::unique_ptr<Subfield::PathElement> Tokenizer::next() {
   if (!hasNext()) {
     VELOX_FAIL("No more tokens");
   }
-  state = State::kNotReady;
+  state_ = State::kNotReady;
   return std::move(next_);
 }
 
@@ -53,13 +50,13 @@ bool Tokenizer::hasNextCharacter() {
 
 std::unique_ptr<Subfield::PathElement> Tokenizer::computeNext() {
   if (!hasNextCharacter()) {
-    state = State::kDone;
+    state_ = State::kDone;
     return nullptr;
   }
 
   if (tryMatchSeparator(separators_->dot)) {
     std::unique_ptr<Subfield::PathElement> token = matchPathSegment();
-    firstSegment = false;
+    firstSegment_ = false;
     return token;
   }
 
@@ -70,13 +67,13 @@ std::unique_ptr<Subfield::PathElement> Tokenizer::computeNext() {
                                                    : matchUnquotedSubscript();
 
     match(separators_->closeBracket);
-    firstSegment = false;
+    firstSegment_ = false;
     return token;
   }
 
-  if (firstSegment) {
+  if (firstSegment_) {
     std::unique_ptr<Subfield::PathElement> token = matchPathSegment();
-    firstSegment = false;
+    firstSegment_ = false;
     return token;
   }
 
@@ -214,10 +211,10 @@ std::string Tokenizer::toString() {
 }
 
 bool Tokenizer::tryToComputeNext() {
-  state = State::kFailed; // temporary pessimism
+  state_ = State::kFailed; // temporary pessimism
   next_ = computeNext();
-  if (state != State::kDone) {
-    state = State::kReady;
+  if (state_ != State::kDone) {
+    state_ = State::kReady;
     return true;
   }
   return false;

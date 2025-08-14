@@ -16,7 +16,6 @@
 
 #include "velox/functions/prestosql/types/BingTileRegistration.h"
 
-#include "velox/common/fuzzer/ConstrainedGenerators.h"
 #include "velox/expression/CastExpr.h"
 #include "velox/functions/prestosql/types/BingTileType.h"
 
@@ -26,11 +25,9 @@ namespace {
 
 class BingTileCastOperator : public exec::CastOperator {
  public:
-  static const std::shared_ptr<const CastOperator>& get() {
-    static const std::shared_ptr<const CastOperator> instance{
-        new BingTileCastOperator()};
-
-    return instance;
+  static std::shared_ptr<const CastOperator> get() {
+    static constexpr BingTileCastOperator kInstance;
+    return {std::shared_ptr<const CastOperator>{}, &kInstance};
   }
 
   bool isSupportedFromType(const TypePtr& other) const override {
@@ -132,8 +129,7 @@ class BingTileTypeFactories : public CustomTypeFactories {
 
   AbstractInputGeneratorPtr getInputGenerator(
       const InputGeneratorConfig& config) const override {
-    return std::make_shared<fuzzer::BingTileInputGenerator>(
-        config.seed_, BINGTILE(), config.nullRatio_);
+    return nullptr;
   }
 };
 
