@@ -36,7 +36,7 @@ TEST_F(DictionaryEncodingUtilsTest, StringGetSortedIndexLookupTable) {
         bool sort,
         std::function<bool(const StringDictionaryEncoder&, size_t, size_t)>
             ordering,
-        const std::vector<folly::StringPiece>& addKeySequence,
+        const std::vector<std::string_view>& addKeySequence,
         const std::vector<uint32_t>& lookupTable)
         : sort{sort},
           ordering{ordering},
@@ -45,7 +45,7 @@ TEST_F(DictionaryEncodingUtilsTest, StringGetSortedIndexLookupTable) {
     bool sort;
     std::function<bool(const StringDictionaryEncoder&, size_t, size_t)>
         ordering;
-    std::vector<folly::StringPiece> addKeySequence;
+    std::vector<std::string_view> addKeySequence;
     std::vector<uint32_t> lookupTable;
   };
 
@@ -151,7 +151,7 @@ TEST_F(DictionaryEncodingUtilsTest, StringStrideDictOptimization) {
         bool sort,
         std::function<bool(const StringDictionaryEncoder&, size_t, size_t)>
             ordering,
-        const std::vector<folly::StringPiece>& addKeySequence,
+        const std::vector<std::string_view>& addKeySequence,
         const std::vector<uint32_t>& lookupTable,
         const std::vector<bool>& inDict,
         size_t finalDictSize,
@@ -166,7 +166,7 @@ TEST_F(DictionaryEncodingUtilsTest, StringStrideDictOptimization) {
     bool sort;
     std::function<bool(const StringDictionaryEncoder&, size_t, size_t)>
         ordering;
-    std::vector<folly::StringPiece> addKeySequence;
+    std::vector<std::string_view> addKeySequence;
     std::vector<uint32_t> lookupTable;
     std::vector<bool> inDict;
     size_t finalDictSize;
@@ -315,7 +315,7 @@ TEST_F(DictionaryEncodingUtilsTest, StringStrideDictOptimization) {
     dwio::common::DataBuffer<uint32_t> strideDictSizes{
         *pool, rowCount / kStrideSize + 1};
 
-    std::vector<folly::StringPiece> expected{testCase.finalDictSize};
+    std::vector<std::string_view> expected{testCase.finalDictSize};
     std::vector<uint32_t> expectedSize(testCase.finalDictSize);
     for (size_t i = 0; i < testCase.lookupTable.size(); ++i) {
       if (testCase.inDict[i]) {

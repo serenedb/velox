@@ -52,16 +52,16 @@ namespace facebook::velox::functions {
  * jsonExtract(json, "$.store.fruit[*].type") = "[\"apple\", \"pear\"]"
  */
 std::optional<folly::dynamic> jsonExtract(
-    folly::StringPiece json,
-    folly::StringPiece path);
+    std::string_view json,
+    std::string_view path);
 
 std::optional<folly::dynamic> jsonExtract(
     const folly::dynamic& json,
-    folly::StringPiece path);
+    std::string_view path);
 
 std::optional<std::string> jsonExtractScalar(
-    folly::StringPiece json,
-    folly::StringPiece path);
+    std::string_view json,
+    std::string_view path);
 
 std::optional<folly::dynamic> jsonExtract(
     const std::string& json,

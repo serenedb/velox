@@ -30,7 +30,6 @@ using dwio::common::RowReader;
 using dwio::common::verify;
 
 using folly::AsciiCaseInsensitive;
-using folly::StringPiece;
 
 const std::string TEXTFILE_CODEC = "org.apache.hadoop.io.compress.GzipCodec";
 const std::string TEXTFILE_COMPRESSION_EXTENSION = ".gz";
@@ -760,8 +759,8 @@ T TextRowReader::getInteger(TextRowReader& th, bool& isNull, DelimType& delim) {
 
 namespace {
 
-static const StringView trueStringView = StringView{"TRUE"};
-static const StringView falseStringView = StringView{"FALSE"};
+constexpr std::string_view kTrueStringView = "TRUE";
+constexpr std::string_view kFalseStringView = "FALSE";
 
 } // namespace
 
@@ -769,28 +768,28 @@ bool TextRowReader::getBoolean(
     TextRowReader& th,
     bool& isNull,
     DelimType& delim) {
-  const std::string& str = getString(th, isNull, delim);
+  const std::string_view str = getString(th, isNull, delim);
   if (str.empty()) {
     isNull = true;
   }
   if (isNull) {
     return false;
   }
-  if (str.compare(trueStringView) == 0) {
+  if (str == kTrueStringView) {
     return true;
   }
-  if (str.compare(falseStringView) == 0) {
+  if (str == kFalseStringView) {
     return false;
   }
 
   switch (str.size()) {
     case 4:
-      if (StringPiece(str).equals("TRUE", AsciiCaseInsensitive())) {
+      if (std::string_view(str).equals("TRUE", AsciiCaseInsensitive())) {
         return true;
       }
       break;
     case 5:
-      if (StringPiece(str).equals("FALSE", AsciiCaseInsensitive())) {
+      if (std::string_view(str).equals("FALSE", AsciiCaseInsensitive())) {
         return false;
       }
       break;
@@ -804,34 +803,30 @@ bool TextRowReader::getBoolean(
 
 namespace {
 
-static const StringView NaNStringView = StringView{"NaN"};
-static const StringView InfinityStringView = StringView{"Infinity"};
-static const StringView ShortInfinityStringView = StringView{"Inf"};
-static const StringView NegInfinityStringView = StringView{"-Infinity"};
-static const StringView ShortNegInfinityStringView = StringView{"-Inf"};
+constexpr std::string_view kNaNStringView = "NaN";
+constexpr std::string_view kInfinityStringView = "Infinity";
+constexpr std::string_view kShortInfinityStringView = "Inf";
+constexpr std::string_view kNegInfinityStringView = "-Infinity";
+constexpr std::string_view kShortNegInfinityStringView = "-Inf";
 
-bool unacceptableFloatingPoint(std::string& s) {
+bool unacceptableFloatingPoint(std::string_view s) {
   for (int i = 0; i < s.size(); ++i) {
     char c = s.data()[i];
-    if (!(std::isalpha(c) || c == '-')) {
+    if (!std::isalpha(c) && c != '-') {
       return false;
     }
   }
 
-  bool isNaN =
-      StringPiece(s).equals(StringPiece(NaNStringView), AsciiCaseInsensitive());
+  bool isNaN = s.equals(kNaNStringView, AsciiCaseInsensitive());
 
-  bool isInf = StringPiece(s).equals(
-      StringPiece(InfinityStringView), AsciiCaseInsensitive());
-  bool isShortInf = StringPiece(s).equals(
-      StringPiece(ShortInfinityStringView), AsciiCaseInsensitive());
+  bool isInf = s.equals(kInfinityStringView, AsciiCaseInsensitive());
+  bool isShortInf = s.equals(kShortInfinityStringView, AsciiCaseInsensitive());
 
-  bool isNegInf = StringPiece(s).equals(
-      StringPiece(NegInfinityStringView), AsciiCaseInsensitive());
-  bool isShortNegInf = StringPiece(s).equals(
-      StringPiece(ShortNegInfinityStringView), AsciiCaseInsensitive());
+  bool isNegInf = s.equals(kNegInfinityStringView, AsciiCaseInsensitive());
+  bool isShortNegInf =
+      s.equals(kShortNegInfinityStringView, AsciiCaseInsensitive());
 
-  return (!isNaN && !isInf && !isShortInf && !isNegInf && !isShortNegInf);
+  return !isNaN && !isInf && !isShortInf && !isNegInf && !isShortNegInf;
 }
 
 void trimStringInPlace(std::string& s) {

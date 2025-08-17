@@ -63,10 +63,6 @@ struct CppToType<uint8_t> : public CppToTypeBase<TypeKind::TINYINT> {};
 template <>
 struct CppToType<bool> : public CppToTypeBase<TypeKind::BOOLEAN> {};
 
-template <>
-struct CppToType<folly::StringPiece> : public CppToTypeBase<TypeKind::VARCHAR> {
-};
-
 // VARBINARY also uses StringView as the native type but its CppToType template
 // is omitted to avoid conflict with VARCHAR.
 template <>

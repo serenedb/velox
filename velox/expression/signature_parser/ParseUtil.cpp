@@ -36,7 +36,7 @@ TypeSignaturePtr inferTypeWithSpaces(
 
 std::unordered_set<std::string> splitNames(const std::string& names) {
   // Parse, lower case and trim it.
-  std::vector<folly::StringPiece> nameList;
+  std::vector<std::string_view> nameList;
   folly::split(',', names, nameList);
   std::unordered_set<std::string> nameSet;
 

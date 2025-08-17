@@ -59,7 +59,7 @@ class WriterContext : public CompressionBufferPool {
 
   void addBuffer(
       const DwrfStreamIdentifier& stream,
-      folly::StringPiece buffer) {
+      std::string_view buffer) {
     streams_.at(stream).take(buffer);
   }
 

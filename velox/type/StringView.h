@@ -33,16 +33,15 @@
 namespace facebook::velox {
 
 // Variable length string or binary type for use in vectors. This has
-// semantics similar to std::string_view or folly::StringPiece and
-// exposes a subset of the interface. If the string is 12 characters
-// or less, it is inlined and no reference is held. If it is longer, a
-// reference to the string is held and the 4 first characters are
-// cached in the StringView. This allows failing comparisons early and
-// reduces the CPU cache working set when dealing with short strings.
+// semantics similar to std::string_view and exposes a subset of the interface.
+// If the string is 12 characters or less, it is inlined and no reference is
+// held. If it is longer, a reference to the string is held and the 4 first
+// characters are cached in the StringView. This allows failing comparisons
+// early and reduces the CPU cache working set when dealing with short strings.
 //
 // Adapted from TU Munich Umbra and CWI DuckDB.
 //
-// TODO: Extend the interface to parity with folly::StringPiece as needed.
+// TODO: Extend the interface to parity with std::string_view as needed.
 struct StringView {
  public:
   using value_type = char;
@@ -179,13 +178,8 @@ struct StringView {
                    : std::strong_ordering::equal;
   }
 
-  operator folly::StringPiece() && = delete;
-  operator folly::StringPiece() const& {
-    return folly::StringPiece(data(), size());
-  }
-
   operator std::string() const {
-    return std::string(data(), size());
+    return {data(), size()};
   }
 
   std::string str() const {
@@ -202,12 +196,12 @@ struct StringView {
 
   operator folly::dynamic() && = delete;
   operator folly::dynamic() const& {
-    return folly::dynamic(folly::StringPiece(data(), size()));
+    return {std::string_view{data(), size()}};
   }
 
   operator std::string_view() && = delete;
-  explicit operator std::string_view() const& {
-    return std::string_view(data(), size());
+  operator std::string_view() const& {
+    return {data(), size()};
   }
 
   const char* begin() && = delete;

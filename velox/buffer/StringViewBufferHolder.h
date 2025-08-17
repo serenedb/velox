@@ -32,9 +32,8 @@ class StringViewBufferHolder {
       : pool_(pool) {}
 
   /// Return a copy of the StringView where the StringView is copied to this
-  /// StringViewBufferHolder if the StringView is not inlined. std::string and
-  /// folly::StringPiece are also copied to the internal buffers (see the
-  /// specializations below).
+  /// StringViewBufferHolder if the StringView is not inlined. std::string_view
+  /// are also copied to the internal buffers (see the specializations below).
   ///
   /// NOTE: Out of convenience, we allow different types to be passed in, but
   /// just don't store them, so that the client does need to have this check.
@@ -48,12 +47,7 @@ class StringViewBufferHolder {
   }
 
   /// Specialization for std::string type.
-  StringView getOwnedValue(const std::string& value) {
-    return getOwnedStringView(value.data(), value.size());
-  }
-
-  /// Specialization for folly::StringPiece type.
-  StringView getOwnedValue(folly::StringPiece value) {
+  StringView getOwnedValue(std::string_view value) {
     return getOwnedStringView(value.data(), value.size());
   }
 

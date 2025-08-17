@@ -44,7 +44,7 @@ class S3TestReporter : public BaseStatsReporter {
     statTypeMap[key] = statType;
   }
 
-  void registerMetricExportType(folly::StringPiece key, StatType statType)
+  void registerMetricExportType(std::string_view key, StatType statType)
       const override {
     statTypeMap[key.str()] = statType;
   }
@@ -59,7 +59,7 @@ class S3TestReporter : public BaseStatsReporter {
   }
 
   void registerHistogramMetricExportType(
-      folly::StringPiece key,
+      std::string_view key,
       int64_t /* bucketWidth */,
       int64_t /* min */,
       int64_t /* max */,
@@ -78,7 +78,7 @@ class S3TestReporter : public BaseStatsReporter {
     counterMap[key] += value;
   }
 
-  void addMetricValue(folly::StringPiece key, size_t value) const override {
+  void addMetricValue(std::string_view key, size_t value) const override {
     std::lock_guard<std::mutex> l(m);
     counterMap[key.str()] += value;
   }
@@ -92,7 +92,7 @@ class S3TestReporter : public BaseStatsReporter {
     counterMap[key] = std::max(counterMap[key], value);
   }
 
-  void addHistogramMetricValue(folly::StringPiece key, size_t value)
+  void addHistogramMetricValue(std::string_view key, size_t value)
       const override {
     counterMap[key.str()] = std::max(counterMap[key.str()], value);
   }

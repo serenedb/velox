@@ -2224,7 +2224,7 @@ class MultiRange final : public Filter {
 
 // Helper for applying filters to different types
 template <typename TFilter, typename T>
-static inline bool applyFilter(TFilter& filter, T value) {
+bool applyFilter(TFilter& filter, T value) {
   if constexpr (std::is_same_v<T, int128_t>) {
     return filter.testInt128(value);
   } else if constexpr (
@@ -2245,17 +2245,7 @@ static inline bool applyFilter(TFilter& filter, T value) {
 }
 
 template <typename TFilter>
-static inline bool applyFilter(TFilter& filter, const std::string& value) {
-  return filter.testBytes(value.data(), value.size());
-}
-
-template <typename TFilter>
-static inline bool applyFilter(TFilter& filter, folly::StringPiece value) {
-  return filter.testBytes(value.data(), value.size());
-}
-
-template <typename TFilter>
-static inline bool applyFilter(TFilter& filter, StringView value) {
+bool applyFilter(TFilter& filter, std::string_view value) {
   return filter.testBytes(value.data(), value.size());
 }
 

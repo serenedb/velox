@@ -34,7 +34,7 @@ TEST_F(StringWriterTest, append) {
   writer.append(std::string_view("2 "));
   writer.append("3 "_sv);
   writer.append(std::string("4 "));
-  writer.append(folly::StringPiece("5 "));
+  writer.append(std::string_view("5 "));
 
   writer.finalize();
 
@@ -48,7 +48,7 @@ TEST_F(StringWriterTest, plusOperator) {
   writer += "2 ";
   writer += std::string_view("3 ");
   writer += std::string("4 ");
-  writer += folly::StringPiece("5 ");
+  writer += std::string_view("5 ");
 
   writer.finalize();
 
@@ -71,7 +71,7 @@ TEST_F(StringWriterTest, assignment) {
   writer2.finalize();
 
   auto writer3 = exec::StringWriter(vector.get(), 3);
-  writer3 = folly::StringPiece("string3");
+  writer3 = std::string_view("string3");
   writer3.finalize();
 
   ASSERT_EQ(vector->valueAt(0), "string0"_sv);

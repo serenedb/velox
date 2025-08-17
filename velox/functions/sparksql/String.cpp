@@ -23,10 +23,8 @@ using namespace stringCore;
 namespace {
 
 template <bool isAscii>
-int32_t instr(
-    const folly::StringPiece haystack,
-    const folly::StringPiece needle) {
-  int32_t offset = haystack.find(needle);
+int32_t instr(std::string_view haystack, std::string_view needle) {
+  // int32_t offset = haystack.find(needle);
   if constexpr (isAscii) {
     return offset + 1;
   } else {

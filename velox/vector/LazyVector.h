@@ -78,7 +78,7 @@ class ValueHook {
     VELOX_UNSUPPORTED();
   }
 
-  virtual void addValue(vector_size_t /*row*/, folly::StringPiece /*value*/) {
+  virtual void addValue(vector_size_t /*row*/, std::string_view /*value*/) {
     VELOX_UNSUPPORTED();
   }
 

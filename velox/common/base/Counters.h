@@ -23,373 +23,379 @@ namespace facebook::velox {
 /// Velox metrics Registration.
 void registerVeloxMetrics();
 
-constexpr folly::StringPiece kMetricHiveFileHandleGenerateLatencyMs{
+inline constexpr std::string_view kMetricHiveFileHandleGenerateLatencyMs{
     "velox.hive_file_handle_generate_latency_ms"};
 
-constexpr folly::StringPiece kMetricCacheShrinkCount{
+inline constexpr std::string_view kMetricCacheShrinkCount{
     "velox.cache_shrink_count"};
 
-constexpr folly::StringPiece kMetricCacheShrinkTimeMs{"velox.cache_shrink_ms"};
+inline constexpr std::string_view kMetricCacheShrinkTimeMs{
+    "velox.cache_shrink_ms"};
 
-constexpr folly::StringPiece kMetricMaxSpillLevelExceededCount{
+inline constexpr std::string_view kMetricMaxSpillLevelExceededCount{
     "velox.spill_max_level_exceeded_count"};
 
-constexpr folly::StringPiece kMetricQueryMemoryReclaimTimeMs{
+inline constexpr std::string_view kMetricQueryMemoryReclaimTimeMs{
     "velox.query_memory_reclaim_time_ms"};
 
-constexpr folly::StringPiece kMetricQueryMemoryReclaimedBytes{
+inline constexpr std::string_view kMetricQueryMemoryReclaimedBytes{
     "velox.query_memory_reclaim_bytes"};
 
-constexpr folly::StringPiece kMetricQueryMemoryReclaimCount{
+inline constexpr std::string_view kMetricQueryMemoryReclaimCount{
     "velox.query_memory_reclaim_count"};
 
-constexpr folly::StringPiece kMetricTaskMemoryReclaimCount{
+inline constexpr std::string_view kMetricTaskMemoryReclaimCount{
     "velox.task_memory_reclaim_count"};
 
-constexpr folly::StringPiece kMetricTaskMemoryReclaimWaitTimeMs{
+inline constexpr std::string_view kMetricTaskMemoryReclaimWaitTimeMs{
     "velox.task_memory_reclaim_wait_ms"};
 
-constexpr folly::StringPiece kMetricTaskMemoryReclaimExecTimeMs{
+inline constexpr std::string_view kMetricTaskMemoryReclaimExecTimeMs{
     "velox.task_memory_reclaim_exec_ms"};
 
-constexpr folly::StringPiece kMetricTaskMemoryReclaimWaitTimeoutCount{
+inline constexpr std::string_view kMetricTaskMemoryReclaimWaitTimeoutCount{
     "velox.task_memory_reclaim_wait_timeout_count"};
 
-constexpr folly::StringPiece kMetricTaskSplitsCount{"velox.task_splits_count"};
+inline constexpr std::string_view kMetricTaskSplitsCount{
+    "velox.task_splits_count"};
 
-constexpr folly::StringPiece kMetricOpMemoryReclaimTimeMs{
+inline constexpr std::string_view kMetricOpMemoryReclaimTimeMs{
     "velox.op_memory_reclaim_time_ms"};
 
-constexpr folly::StringPiece kMetricOpMemoryReclaimedBytes{
+inline constexpr std::string_view kMetricOpMemoryReclaimedBytes{
     "velox.op_memory_reclaim_bytes"};
 
-constexpr folly::StringPiece kMetricOpMemoryReclaimCount{
+inline constexpr std::string_view kMetricOpMemoryReclaimCount{
     "velox.op_memory_reclaim_count"};
 
-constexpr folly::StringPiece kMetricMemoryNonReclaimableCount{
+inline constexpr std::string_view kMetricMemoryNonReclaimableCount{
     "velox.memory_non_reclaimable_count"};
 
-constexpr folly::StringPiece kMetricMemoryPoolInitialCapacityBytes{
+inline constexpr std::string_view kMetricMemoryPoolInitialCapacityBytes{
     "velox.memory_pool_initial_capacity_bytes"};
 
-constexpr folly::StringPiece kMetricMemoryPoolCapacityGrowCount{
+inline constexpr std::string_view kMetricMemoryPoolCapacityGrowCount{
     "velox.memory_pool_capacity_growth_count"};
 
-constexpr folly::StringPiece kMetricMemoryPoolUsageLeakBytes{
+inline constexpr std::string_view kMetricMemoryPoolUsageLeakBytes{
     "velox.memory_pool_usage_leak_bytes"};
 
-constexpr folly::StringPiece kMetricMemoryPoolReservationLeakBytes{
+inline constexpr std::string_view kMetricMemoryPoolReservationLeakBytes{
     "velox.memory_pool_reservation_leak_bytes"};
 
-constexpr folly::StringPiece kMetricMemoryAllocatorDoubleFreeCount{
+inline constexpr std::string_view kMetricMemoryAllocatorDoubleFreeCount{
     "velox.memory_allocator_double_free_count"};
 
-constexpr folly::StringPiece kMetricArbitratorLocalArbitrationCount{
+inline constexpr std::string_view kMetricArbitratorLocalArbitrationCount{
     "velox.arbitrator_local_arbitration_count"};
 
-constexpr folly::StringPiece kMetricArbitratorGlobalArbitrationCount{
+inline constexpr std::string_view kMetricArbitratorGlobalArbitrationCount{
     "velox.arbitrator_global_arbitration_count"};
 
-constexpr folly::StringPiece
+inline constexpr std::string_view
     kMetricArbitratorGlobalArbitrationNumReclaimVictims{
         "velox.arbitrator_global_arbitration_num_reclaim_victims"};
 
-constexpr folly::StringPiece
+inline constexpr std::string_view
     kMetricArbitratorGlobalArbitrationFailedVictimCount{
         "velox.arbitrator_global_arbitration_failed_victim_count"};
 
-constexpr folly::StringPiece kMetricArbitratorGlobalArbitrationBytes{
+inline constexpr std::string_view kMetricArbitratorGlobalArbitrationBytes{
     "velox.arbitrator_global_arbitration_bytes"};
 
-constexpr folly::StringPiece kMetricArbitratorGlobalArbitrationTimeMs{
+inline constexpr std::string_view kMetricArbitratorGlobalArbitrationTimeMs{
     "velox.arbitrator_global_arbitration_time_ms"};
 
-constexpr folly::StringPiece kMetricArbitratorGlobalArbitrationWaitCount{
+inline constexpr std::string_view kMetricArbitratorGlobalArbitrationWaitCount{
     "velox.arbitrator_global_arbitration_wait_count"};
 
-constexpr folly::StringPiece kMetricArbitratorGlobalArbitrationWaitTimeMs{
+inline constexpr std::string_view kMetricArbitratorGlobalArbitrationWaitTimeMs{
     "velox.arbitrator_global_arbitration_wait_time_ms"};
 
-constexpr folly::StringPiece kMetricArbitratorAbortedCount{
+inline constexpr std::string_view kMetricArbitratorAbortedCount{
     "velox.arbitrator_aborted_count"};
 
-constexpr folly::StringPiece kMetricArbitratorFailuresCount{
+inline constexpr std::string_view kMetricArbitratorFailuresCount{
     "velox.arbitrator_failures_count"};
 
-constexpr folly::StringPiece kMetricArbitratorOpExecTimeMs{
+inline constexpr std::string_view kMetricArbitratorOpExecTimeMs{
     "velox.arbitrator_op_exec_time_ms"};
 
-constexpr folly::StringPiece kMetricArbitratorFreeCapacityBytes{
+inline constexpr std::string_view kMetricArbitratorFreeCapacityBytes{
     "velox.arbitrator_free_capacity_bytes"};
 
-constexpr folly::StringPiece kMetricArbitratorFreeReservedCapacityBytes{
+inline constexpr std::string_view kMetricArbitratorFreeReservedCapacityBytes{
     "velox.arbitrator_free_reserved_capacity_bytes"};
 
-constexpr folly::StringPiece kMetricDriverYieldCount{
+inline constexpr std::string_view kMetricDriverYieldCount{
     "velox.driver_yield_count"};
 
-constexpr folly::StringPiece kMetricDriverQueueTimeMs{
+inline constexpr std::string_view kMetricDriverQueueTimeMs{
     "velox.driver_queue_time_ms"};
 
-constexpr folly::StringPiece kMetricDriverExecTimeMs{
+inline constexpr std::string_view kMetricDriverExecTimeMs{
     "velox.driver_exec_time_ms"};
 
-constexpr folly::StringPiece kMetricSpilledInputBytes{
+inline constexpr std::string_view kMetricSpilledInputBytes{
     "velox.spill_input_bytes"};
 
-constexpr folly::StringPiece kMetricSpilledBytes{"velox.spill_bytes"};
+inline constexpr std::string_view kMetricSpilledBytes{"velox.spill_bytes"};
 
-constexpr folly::StringPiece kMetricSpilledRowsCount{"velox.spill_rows_count"};
+inline constexpr std::string_view kMetricSpilledRowsCount{
+    "velox.spill_rows_count"};
 
-constexpr folly::StringPiece kMetricSpilledFilesCount{
+inline constexpr std::string_view kMetricSpilledFilesCount{
     "velox.spill_files_count"};
 
-constexpr folly::StringPiece kMetricSpillFillTimeMs{"velox.spill_fill_time_ms"};
+inline constexpr std::string_view kMetricSpillFillTimeMs{
+    "velox.spill_fill_time_ms"};
 
-constexpr folly::StringPiece kMetricSpillSortTimeMs{"velox.spill_sort_time_ms"};
+inline constexpr std::string_view kMetricSpillSortTimeMs{
+    "velox.spill_sort_time_ms"};
 
-constexpr folly::StringPiece kMetricSpillExtractVectorTimeMs{
+inline constexpr std::string_view kMetricSpillExtractVectorTimeMs{
     "velox.spill_extract_vector_time_ms"};
 
-constexpr folly::StringPiece kMetricSpillSerializationTimeMs{
+inline constexpr std::string_view kMetricSpillSerializationTimeMs{
     "velox.spill_serialization_time_ms"};
 
-constexpr folly::StringPiece kMetricSpillWritesCount{
+inline constexpr std::string_view kMetricSpillWritesCount{
     "velox.spill_writes_count"};
 
-constexpr folly::StringPiece kMetricSpillFlushTimeMs{
+inline constexpr std::string_view kMetricSpillFlushTimeMs{
     "velox.spill_flush_time_ms"};
 
-constexpr folly::StringPiece kMetricSpillWriteTimeMs{
+inline constexpr std::string_view kMetricSpillWriteTimeMs{
     "velox.spill_write_time_ms"};
 
-constexpr folly::StringPiece kMetricSpillMemoryBytes{
+inline constexpr std::string_view kMetricSpillMemoryBytes{
     "velox.spill_memory_bytes"};
 
-constexpr folly::StringPiece kMetricSpillPeakMemoryBytes{
+inline constexpr std::string_view kMetricSpillPeakMemoryBytes{
     "velox.spill_peak_memory_bytes"};
 
-constexpr folly::StringPiece kMetricFileWriterEarlyFlushedRawBytes{
+inline constexpr std::string_view kMetricFileWriterEarlyFlushedRawBytes{
     "velox.file_writer_early_flushed_raw_bytes"};
 
-constexpr folly::StringPiece kMetricHiveSortWriterFinishTimeMs{
+inline constexpr std::string_view kMetricHiveSortWriterFinishTimeMs{
     "velox.hive_sort_writer_finish_time_ms"};
 
-constexpr folly::StringPiece kMetricArbitratorRequestsCount{
+inline constexpr std::string_view kMetricArbitratorRequestsCount{
     "velox.arbitrator_requests_count"};
 
-constexpr folly::StringPiece kMetricMemoryAllocatorMappedBytes{
+inline constexpr std::string_view kMetricMemoryAllocatorMappedBytes{
     "velox.memory_allocator_mapped_bytes"};
 
-constexpr folly::StringPiece kMetricMemoryAllocatorExternalMappedBytes{
+inline constexpr std::string_view kMetricMemoryAllocatorExternalMappedBytes{
     "velox.memory_allocator_external_mapped_bytes"};
 
-constexpr folly::StringPiece kMetricMemoryAllocatorAllocatedBytes{
+inline constexpr std::string_view kMetricMemoryAllocatorAllocatedBytes{
     "velox.memory_allocator_allocated_bytes"};
 
-constexpr folly::StringPiece kMetricMemoryAllocatorTotalUsedBytes{
+inline constexpr std::string_view kMetricMemoryAllocatorTotalUsedBytes{
     "velox.memory_allocator_total_used_bytes"};
 
-constexpr folly::StringPiece kMetricMmapAllocatorDelegatedAllocatedBytes{
+inline constexpr std::string_view kMetricMmapAllocatorDelegatedAllocatedBytes{
     "velox.mmap_allocator_delegated_allocated_bytes"};
 
-constexpr folly::StringPiece kMetricCacheMaxAgeSecs{"velox.cache_max_age_secs"};
+inline constexpr std::string_view kMetricCacheMaxAgeSecs{
+    "velox.cache_max_age_secs"};
 
-constexpr folly::StringPiece kMetricMemoryCacheNumEntries{
+inline constexpr std::string_view kMetricMemoryCacheNumEntries{
     "velox.memory_cache_num_entries"};
 
-constexpr folly::StringPiece kMetricMemoryCacheNumEmptyEntries{
+inline constexpr std::string_view kMetricMemoryCacheNumEmptyEntries{
     "velox.memory_cache_num_empty_entries"};
 
-constexpr folly::StringPiece kMetricMemoryCacheNumSharedEntries{
+inline constexpr std::string_view kMetricMemoryCacheNumSharedEntries{
     "velox.memory_cache_num_shared_entries"};
 
-constexpr folly::StringPiece kMetricMemoryCacheNumExclusiveEntries{
+inline constexpr std::string_view kMetricMemoryCacheNumExclusiveEntries{
     "velox.memory_cache_num_exclusive_entries"};
 
-constexpr folly::StringPiece kMetricMemoryCacheNumPrefetchedEntries{
+inline constexpr std::string_view kMetricMemoryCacheNumPrefetchedEntries{
     "velox.memory_cache_num_prefetched_entries"};
 
-constexpr folly::StringPiece kMetricMemoryCacheTotalTinyBytes{
+inline constexpr std::string_view kMetricMemoryCacheTotalTinyBytes{
     "velox.memory_cache_total_tiny_bytes"};
 
-constexpr folly::StringPiece kMetricMemoryCacheTotalLargeBytes{
+inline constexpr std::string_view kMetricMemoryCacheTotalLargeBytes{
     "velox.memory_cache_total_large_bytes"};
 
-constexpr folly::StringPiece kMetricMemoryCacheTotalTinyPaddingBytes{
+inline constexpr std::string_view kMetricMemoryCacheTotalTinyPaddingBytes{
     "velox.memory_cache_total_tiny_padding_bytes"};
 
-constexpr folly::StringPiece kMetricMemoryCacheTotalLargePaddingBytes{
+inline constexpr std::string_view kMetricMemoryCacheTotalLargePaddingBytes{
     "velox.memory_cache_total_large_padding_bytes"};
 
-constexpr folly::StringPiece kMetricMemoryCacheTotalPrefetchBytes{
+inline constexpr std::string_view kMetricMemoryCacheTotalPrefetchBytes{
     "velox.memory_cache_total_prefetched_bytes"};
 
-constexpr folly::StringPiece kMetricMemoryCacheSumEvictScore{
+inline constexpr std::string_view kMetricMemoryCacheSumEvictScore{
     "velox.memory_cache_sum_evict_score"};
 
-constexpr folly::StringPiece kMetricMemoryCacheNumHits{
+inline constexpr std::string_view kMetricMemoryCacheNumHits{
     "velox.memory_cache_num_hits"};
 
-constexpr folly::StringPiece kMetricMemoryCacheHitBytes{
+inline constexpr std::string_view kMetricMemoryCacheHitBytes{
     "velox.memory_cache_hit_bytes"};
 
-constexpr folly::StringPiece kMetricMemoryCacheNumNew{
+inline constexpr std::string_view kMetricMemoryCacheNumNew{
     "velox.memory_cache_num_new"};
 
-constexpr folly::StringPiece kMetricMemoryCacheNumEvicts{
+inline constexpr std::string_view kMetricMemoryCacheNumEvicts{
     "velox.memory_cache_num_evicts"};
 
-constexpr folly::StringPiece kMetricMemoryCacheNumSavableEvicts{
+inline constexpr std::string_view kMetricMemoryCacheNumSavableEvicts{
     "velox.memory_cache_num_savable_evicts"};
 
-constexpr folly::StringPiece kMetricMemoryCacheNumEvictChecks{
+inline constexpr std::string_view kMetricMemoryCacheNumEvictChecks{
     "velox.memory_cache_num_evict_checks"};
 
-constexpr folly::StringPiece kMetricMemoryCacheNumWaitExclusive{
+inline constexpr std::string_view kMetricMemoryCacheNumWaitExclusive{
     "velox.memory_cache_num_wait_exclusive"};
 
-constexpr folly::StringPiece kMetricMemoryCacheNumAllocClocks{
+inline constexpr std::string_view kMetricMemoryCacheNumAllocClocks{
     "velox.memory_cache_num_alloc_clocks"};
 
-constexpr folly::StringPiece kMetricMemoryCacheNumAgedOutEntries{
+inline constexpr std::string_view kMetricMemoryCacheNumAgedOutEntries{
     "velox.memory_cache_num_aged_out_entries"};
 
-constexpr folly::StringPiece kMetricMemoryCacheNumStaleEntries{
+inline constexpr std::string_view kMetricMemoryCacheNumStaleEntries{
     "velox.memory_cache_num_stale_entries"};
 
-constexpr folly::StringPiece kMetricSsdCacheCachedRegions{
+inline constexpr std::string_view kMetricSsdCacheCachedRegions{
     "velox.ssd_cache_cached_regions"};
 
-constexpr folly::StringPiece kMetricSsdCacheCachedEntries{
+inline constexpr std::string_view kMetricSsdCacheCachedEntries{
     "velox.ssd_cache_cached_entries"};
 
-constexpr folly::StringPiece kMetricSsdCacheCachedBytes{
+inline constexpr std::string_view kMetricSsdCacheCachedBytes{
     "velox.ssd_cache_cached_bytes"};
 
-constexpr folly::StringPiece kMetricSsdCacheReadEntries{
+inline constexpr std::string_view kMetricSsdCacheReadEntries{
     "velox.ssd_cache_read_entries"};
 
-constexpr folly::StringPiece kMetricSsdCacheReadBytes{
+inline constexpr std::string_view kMetricSsdCacheReadBytes{
     "velox.ssd_cache_read_bytes"};
 
-constexpr folly::StringPiece kMetricSsdCacheWrittenEntries{
+inline constexpr std::string_view kMetricSsdCacheWrittenEntries{
     "velox.ssd_cache_written_entries"};
 
-constexpr folly::StringPiece kMetricSsdCacheWrittenBytes{
+inline constexpr std::string_view kMetricSsdCacheWrittenBytes{
     "velox.ssd_cache_written_bytes"};
 
-constexpr folly::StringPiece kMetricSsdCacheAgedOutEntries{
+inline constexpr std::string_view kMetricSsdCacheAgedOutEntries{
     "velox.ssd_cache_aged_out_entries"};
 
-constexpr folly::StringPiece kMetricSsdCacheAgedOutRegions{
+inline constexpr std::string_view kMetricSsdCacheAgedOutRegions{
     "velox.ssd_cache_aged_out_regions"};
 
-constexpr folly::StringPiece kMetricSsdCacheOpenSsdErrors{
+inline constexpr std::string_view kMetricSsdCacheOpenSsdErrors{
     "velox.ssd_cache_open_ssd_errors"};
 
-constexpr folly::StringPiece kMetricSsdCacheOpenCheckpointErrors{
+inline constexpr std::string_view kMetricSsdCacheOpenCheckpointErrors{
     "velox.ssd_cache_open_checkpoint_errors"};
 
-constexpr folly::StringPiece kMetricSsdCacheOpenLogErrors{
+inline constexpr std::string_view kMetricSsdCacheOpenLogErrors{
     "velox.ssd_cache_open_log_errors"};
 
-constexpr folly::StringPiece kMetricSsdCacheMetaFileDeleteErrors{
+inline constexpr std::string_view kMetricSsdCacheMetaFileDeleteErrors{
     "velox.ssd_cache_delete_meta_file_errors"};
 
-constexpr folly::StringPiece kMetricSsdCacheGrowFileErrors{
+inline constexpr std::string_view kMetricSsdCacheGrowFileErrors{
     "velox.ssd_cache_grow_file_errors"};
 
-constexpr folly::StringPiece kMetricSsdCacheWriteSsdErrors{
+inline constexpr std::string_view kMetricSsdCacheWriteSsdErrors{
     "velox.ssd_cache_write_ssd_errors"};
 
-constexpr folly::StringPiece kMetricSsdCacheWriteSsdDropped{
+inline constexpr std::string_view kMetricSsdCacheWriteSsdDropped{
     "velox.ssd_cache_write_ssd_dropped"};
 
-constexpr folly::StringPiece kMetricSsdCacheWriteCheckpointErrors{
+inline constexpr std::string_view kMetricSsdCacheWriteCheckpointErrors{
     "velox.ssd_cache_write_checkpoint_errors"};
 
-constexpr folly::StringPiece kMetricSsdCacheReadCorruptions{
+inline constexpr std::string_view kMetricSsdCacheReadCorruptions{
     "velox.ssd_cache_read_corruptions"};
 
-constexpr folly::StringPiece kMetricSsdCacheReadSsdErrors{
+inline constexpr std::string_view kMetricSsdCacheReadSsdErrors{
     "velox.ssd_cache_read_ssd_errors"};
 
-constexpr folly::StringPiece kMetricSsdCacheReadCheckpointErrors{
+inline constexpr std::string_view kMetricSsdCacheReadCheckpointErrors{
     "velox.ssd_cache_read_checkpoint_errors"};
 
-constexpr folly::StringPiece kMetricSsdCacheReadWithoutChecksum{
+inline constexpr std::string_view kMetricSsdCacheReadWithoutChecksum{
     "velox.ssd_cache_read_without_checksum"};
 
-constexpr folly::StringPiece kMetricSsdCacheCheckpointsRead{
+inline constexpr std::string_view kMetricSsdCacheCheckpointsRead{
     "velox.ssd_cache_checkpoints_read"};
 
-constexpr folly::StringPiece kMetricSsdCacheCheckpointsWritten{
+inline constexpr std::string_view kMetricSsdCacheCheckpointsWritten{
     "velox.ssd_cache_checkpoints_written"};
 
-constexpr folly::StringPiece kMetricSsdCacheRegionsEvicted{
+inline constexpr std::string_view kMetricSsdCacheRegionsEvicted{
     "velox.ssd_cache_regions_evicted"};
 
-constexpr folly::StringPiece kMetricSsdCacheRecoveredEntries{
+inline constexpr std::string_view kMetricSsdCacheRecoveredEntries{
     "velox.ssd_cache_recovered_entries"};
 
-constexpr folly::StringPiece kMetricExchangeTransactionCreateDelay{
+inline constexpr std::string_view kMetricExchangeTransactionCreateDelay{
     "velox.exchange.transaction_create_delay_ms"};
 
-constexpr folly::StringPiece kMetricExchangeDataTimeMs{
+inline constexpr std::string_view kMetricExchangeDataTimeMs{
     "velox.exchange_data_time_ms"};
 
-constexpr folly::StringPiece kMetricExchangeDataBytes{
+inline constexpr std::string_view kMetricExchangeDataBytes{
     "velox.exchange_data_bytes"};
 
-constexpr folly::StringPiece kMetricExchangeDataSize{
+inline constexpr std::string_view kMetricExchangeDataSize{
     "velox.exchange_data_size"};
 
-constexpr folly::StringPiece kMetricExchangeDataCount{
+inline constexpr std::string_view kMetricExchangeDataCount{
     "velox.exchange_data_count"};
 
-constexpr folly::StringPiece kMetricExchangeDataSizeTimeMs{
+inline constexpr std::string_view kMetricExchangeDataSizeTimeMs{
     "velox.exchange_data_size_time_ms"};
 
-constexpr folly::StringPiece kMetricExchangeDataSizeCount{
+inline constexpr std::string_view kMetricExchangeDataSizeCount{
     "velox.exchange_data_size_count"};
 
-constexpr folly::StringPiece kMetricStorageThrottledDurationMs{
+inline constexpr std::string_view kMetricStorageThrottledDurationMs{
     "velox.storage_throttled_duration_ms"};
 
-constexpr folly::StringPiece kMetricStorageLocalThrottled{
+inline constexpr std::string_view kMetricStorageLocalThrottled{
     "velox.storage_local_throttled_count"};
 
-constexpr folly::StringPiece kMetricStorageGlobalThrottled{
+inline constexpr std::string_view kMetricStorageGlobalThrottled{
     "velox.storage_global_throttled_count"};
 
-constexpr folly::StringPiece kMetricStorageNetworkThrottled{
+inline constexpr std::string_view kMetricStorageNetworkThrottled{
     "velox.storage_network_throttled_count"};
 
-constexpr folly::StringPiece kMetricIndexLookupResultRawBytes{
+inline constexpr std::string_view kMetricIndexLookupResultRawBytes{
     "velox.index_lookup_result_raw_bytes"};
 
-constexpr folly::StringPiece kMetricIndexLookupResultBytes{
+inline constexpr std::string_view kMetricIndexLookupResultBytes{
     "velox.index_lookup_result_bytes"};
 
-constexpr folly::StringPiece kMetricIndexLookupTimeMs{
+inline constexpr std::string_view kMetricIndexLookupTimeMs{
     "velox.index_lookup_time_ms"};
 
-constexpr folly::StringPiece kMetricIndexLookupWaitTimeMs{
+inline constexpr std::string_view kMetricIndexLookupWaitTimeMs{
     "velox.index_lookup_wait_time_ms"};
 
-constexpr folly::StringPiece kMetricIndexLookupBlockedWaitTimeMs{
+inline constexpr std::string_view kMetricIndexLookupBlockedWaitTimeMs{
     "velox.index_lookup_blocked_wait_time_ms"};
 
-constexpr folly::StringPiece kMetricTableScanBatchProcessTimeMs{
+inline constexpr std::string_view kMetricTableScanBatchProcessTimeMs{
     "velox.table_scan_batch_process_time_ms"};
 
-constexpr folly::StringPiece kMetricTableScanBatchBytes{
+inline constexpr std::string_view kMetricTableScanBatchBytes{
     "velox.table_scan_batch_bytes"};
 
-constexpr folly::StringPiece kMetricTaskBatchProcessTimeMs{
+inline constexpr std::string_view kMetricTaskBatchProcessTimeMs{
     "velox.task_batch_process_time_ms"};
 
-constexpr folly::StringPiece kMetricTaskBarrierProcessTimeMs{
+inline constexpr std::string_view kMetricTaskBarrierProcessTimeMs{
     "velox.task_barrier_process_time_ms"};
 } // namespace facebook::velox

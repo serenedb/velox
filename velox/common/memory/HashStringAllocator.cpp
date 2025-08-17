@@ -557,7 +557,7 @@ void HashStringAllocator::ensureAvailable(int32_t bytes, Position& position) {
   static char data[128];
   while (bytes > 0) {
     const auto written = std::min<size_t>(bytes, sizeof(data));
-    stream.append(folly::StringPiece(data, written));
+    stream.append(folly::Range<const char*>{data, written});
     bytes -= written;
   }
   position = finishWrite(stream, 0).first;

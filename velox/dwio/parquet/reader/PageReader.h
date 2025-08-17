@@ -261,12 +261,10 @@ class PageReader {
 
   // Calls the visitor, specialized on the data type since not all visitors
   // apply to all types.
-  template <
-      typename Visitor,
-      typename std::enable_if<
-          !std::is_same_v<typename Visitor::DataType, folly::StringPiece> &&
-              !std::is_same_v<typename Visitor::DataType, int8_t>,
-          int>::type = 0>
+  template <typename Visitor>
+    requires(
+        !std::is_same_v<typename Visitor::DataType, std::string_view> &&
+        !std::is_same_v<typename Visitor::DataType, int8_t>)
   void
   callDecoder(const uint64_t* nulls, bool& nullsFromFastPath, Visitor visitor) {
     if (nulls) {
@@ -297,11 +295,8 @@ class PageReader {
     }
   }
 
-  template <
-      typename Visitor,
-      typename std::enable_if<
-          std::is_same_v<typename Visitor::DataType, folly::StringPiece>,
-          int>::type = 0>
+  template <typename Visitor>
+    requires(std::is_same_v<typename Visitor::DataType, std::string_view>)
   void
   callDecoder(const uint64_t* nulls, bool& nullsFromFastPath, Visitor visitor) {
     if (nulls) {

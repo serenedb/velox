@@ -86,16 +86,16 @@ class ByteSink {
    * append() will return 0).  In particular, this may not be used for
    * non-blocking behavior.
    */
-  virtual size_t append(folly::StringPiece str) = 0;
+  virtual size_t append(std::string_view str) = 0;
   size_t append(const void* data, size_t size) {
-    return append(folly::StringPiece(static_cast<const char*>(data), size));
+    return append(std::string_view(static_cast<const char*>(data), size));
   }
 
   /**
    * Append the given string to this ByteSink.  The string must remain
    * allocated (and unchanged) until the ByteSink is destroyed.
    */
-  virtual size_t appendAllocated(folly::StringPiece str) {
+  virtual size_t appendAllocated(std::string_view str) {
     return append(str);
   }
 
@@ -107,7 +107,7 @@ class ByteSink {
   template <class T>
   size_t appendBitwise(const T* obj, size_t count) {
     const size_t sz = count * sizeof(T);
-    return append(folly::StringPiece(reinterpret_cast<const char*>(obj), sz));
+    return append(std::string_view(reinterpret_cast<const char*>(obj), sz));
   }
 
   /**
@@ -185,8 +185,8 @@ class SByteSink : public ByteSink {
  public:
   explicit SByteSink(S* str) : str_(str) {}
 
-  size_t append(folly::StringPiece s) override {
-    str_->append(s.start(), s.size());
+  size_t append(std::string_view s) override {
+    str_->append(s.data(), s.size());
     return s.size();
   }
 
@@ -194,8 +194,7 @@ class SByteSink : public ByteSink {
   S* str_;
 };
 
-typedef SByteSink<std::string> StringByteSink;
-typedef SByteSink<folly::fbstring> FBStringByteSink;
+using StringByteSink = SByteSink<std::string>;
 
 /**
  * Interface for reading bytes from an underlying data source (such as a
@@ -237,7 +236,7 @@ class ByteSource {
    * next() will return false, but bad() will also return false.  On error,
    * next() returns false, and bad() returns true.
    */
-  virtual bool next(folly::StringPiece* chunk) = 0;
+  virtual bool next(std::string_view* chunk) = 0;
 
   /**
    * Push back the last numBytes returned by the last next() call, so
@@ -316,7 +315,7 @@ class ByteSourceBuffer : public std::basic_streambuf<char> {
 class StringByteSource : public ByteSource {
  public:
   explicit StringByteSource(
-      const folly::StringPiece& str,
+      const std::string_view& str,
       size_t maxBytes = kSizeMax)
       : str_(str),
         offset_(0),
@@ -326,12 +325,12 @@ class StringByteSource : public ByteSource {
   bool bad() const override {
     return false;
   }
-  bool next(folly::StringPiece* chunk) override {
+  bool next(std::string_view* chunk) override {
     if (offset_ == str_.size()) {
       return false;
     }
     size_t len = std::min(str_.size() - offset_, maxBytes_);
-    chunk->reset(str_.start() + offset_, len);
+    *chunk = {str_.data() + offset_, len};
     offset_ += len;
     return true;
   }
@@ -342,7 +341,7 @@ class StringByteSource : public ByteSource {
   }
 
  private:
-  folly::StringPiece str_;
+  std::string_view str_;
   size_t offset_;
   size_t maxBytes_;
 };

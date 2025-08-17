@@ -30,14 +30,14 @@ namespace detail {
 
 // Each new string inserted into dictionary is assigned an incrementing id.
 // A set is maintained with all of the DictStringId created. Using
-// Heterogeneous lookup techniques, incoming StringPiece is first looked for
-// a match in the set. If no match exists a new id is generated and inserted
+// Heterogeneous lookup techniques, incoming std::string_view is first looked
+// for a match in the set. If no match exists a new id is generated and inserted
 // into the set. What is Heterogeneous lookup ?
 // http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0919r1.html
 // Heterogeneous lookup is not available in standard CPP and proposed for CPP20.
 // Follys:F14* variant supports it, so leveraging folly for now.
 struct StringLookupKey {
-  StringLookupKey(folly::StringPiece sp, uint32_t index)
+  StringLookupKey(std::string_view sp, uint32_t index)
       : sp{sp},
         index{index},
         hash{folly::crc32c(
@@ -45,7 +45,7 @@ struct StringLookupKey {
             sp.size(),
             0 /* seed */)} {}
 
-  const folly::StringPiece sp;
+  const std::string_view sp;
   const uint32_t index;
   const uint32_t hash;
 };
@@ -117,7 +117,7 @@ class StringDictionaryEncoder {
   }
 
   uint32_t
-  addKey(folly::StringPiece sp, uint32_t strideIndex, uint32_t count = 1) {
+  addKey(std::string_view sp, uint32_t strideIndex, uint32_t count = 1) {
     auto newIndex = size();
     detail::StringLookupKey key{sp, newIndex};
     auto result = keyIndex_.insert(key);
@@ -153,11 +153,11 @@ class StringDictionaryEncoder {
     return firstSeenStrideIndex_[index];
   }
 
-  folly::StringPiece getKey(uint32_t index) const {
+  std::string_view getKey(uint32_t index) const {
     DCHECK(index < keyOffsets_.size() - 1);
     auto startOffset = keyOffsets_[index];
     auto endOffset = keyOffsets_[index + 1];
-    return folly::StringPiece{
+    return std::string_view{
         keyBytes_.data() + startOffset, endOffset - startOffset};
   }
 
@@ -178,7 +178,7 @@ class StringDictionaryEncoder {
   VELOX_FRIEND_TEST(TestStringDictionaryEncoder, Clear);
 
   // Intended for testing only.
-  uint32_t getIndex(folly::StringPiece sp) {
+  uint32_t getIndex(std::string_view sp) {
     detail::StringLookupKey key{sp, 0};
     auto result = keyIndex_.find(key);
     if (result != keyIndex_.end()) {

@@ -24,8 +24,8 @@ bool BufferedOutputStream::Next(
     uint64_t increment) {
   // Try resize the buffer, if failed, flush it to make room
   if (!tryResize(buffer, size, 0, increment)) {
-    flushAndReset(
-        buffer, size, 0, {folly::Range(buffer_.data(), buffer_.size())});
+    std::string_view singleBuffer{buffer_.data(), buffer_.size()};
+    flushAndReset(buffer, size, 0, {&singleBuffer, 1});
   }
   return true;
 }

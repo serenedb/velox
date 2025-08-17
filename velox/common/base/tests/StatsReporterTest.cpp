@@ -33,7 +33,7 @@ namespace facebook::velox {
 class TestReporter : public BaseStatsReporter {
  public:
   mutable std::mutex m;
-  mutable std::map<std::string, size_t> counterMap;
+  mutable std::map<std::string, size_t, std::less<>> counterMap;
   mutable std::unordered_map<std::string, StatType> statTypeMap;
   mutable std::unordered_map<std::string, std::vector<int32_t>>
       histogramPercentilesMap;
@@ -50,9 +50,9 @@ class TestReporter : public BaseStatsReporter {
     statTypeMap[key] = statType;
   }
 
-  void registerMetricExportType(folly::StringPiece key, StatType statType)
+  void registerMetricExportType(std::string_view key, StatType statType)
       const override {
-    statTypeMap[key.str()] = statType;
+    statTypeMap[std::string{key}] = statType;
   }
 
   void registerHistogramMetricExportType(
@@ -65,12 +65,12 @@ class TestReporter : public BaseStatsReporter {
   }
 
   void registerHistogramMetricExportType(
-      folly::StringPiece key,
+      std::string_view key,
       int64_t /* bucketWidth */,
       int64_t /* min */,
       int64_t /* max */,
       const std::vector<int32_t>& pcts) const override {
-    histogramPercentilesMap[key.str()] = pcts;
+    histogramPercentilesMap[std::string{key}] = pcts;
   }
 
   void addMetricValue(const std::string& key, const size_t value)
@@ -84,9 +84,9 @@ class TestReporter : public BaseStatsReporter {
     counterMap[key] += value;
   }
 
-  void addMetricValue(folly::StringPiece key, size_t value) const override {
+  void addMetricValue(std::string_view key, size_t value) const override {
     std::lock_guard<std::mutex> l(m);
-    counterMap[key.str()] += value;
+    counterMap[key] += value;
   }
 
   void addHistogramMetricValue(const std::string& key, size_t value)
@@ -100,10 +100,11 @@ class TestReporter : public BaseStatsReporter {
     counterMap[key] = std::max(counterMap[key], value);
   }
 
-  void addHistogramMetricValue(folly::StringPiece key, size_t value)
+  void addHistogramMetricValue(std::string_view key, size_t value)
       const override {
     std::lock_guard<std::mutex> l(m);
-    counterMap[key.str()] = std::max(counterMap[key.str()], value);
+    auto& counter = counterMap[std::string{key}];
+    counter = std::max(counter, value);
   }
 
   std::string fetchMetrics() override {
@@ -545,8 +546,9 @@ TEST_F(PeriodicStatsReporterTest, basic) {
        .allocClocks = 10,
        .sumEvictScore = 10,
        .ssdStats = newSsdStats});
-  arbitrator.updateStats(memory::MemoryArbitrator::Stats(
-      10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10));
+  arbitrator.updateStats(
+      memory::MemoryArbitrator::Stats(
+          10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10));
   std::this_thread::sleep_for(std::chrono::milliseconds(4'000));
 
   // Stop right after sufficient wait to ensure the following reads from main

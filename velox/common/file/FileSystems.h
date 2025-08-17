@@ -46,7 +46,7 @@ struct FileOptions {
   /// form should be defined by specific implementations of file system. e.g.
   /// inside this property there could be things like block size, encoding, and
   /// etc.
-  static constexpr folly::StringPiece kFileCreateConfig{"file-create-config"};
+  static constexpr std::string_view kFileCreateConfig{"file-create-config"};
 
   std::unordered_map<std::string, std::string> values;
   memory::MemoryPool* pool{nullptr};
@@ -99,7 +99,7 @@ struct DirectoryOptions : FileOptions {
   bool failIfExists{false};
 
   /// This is similar to kFileCreateConfig
-  static constexpr folly::StringPiece kMakeDirectoryConfig{
+  static constexpr std::string_view kMakeDirectoryConfig{
       "make-directory-config"};
 };
 

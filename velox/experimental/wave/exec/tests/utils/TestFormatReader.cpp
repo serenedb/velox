@@ -285,7 +285,7 @@ class TestStructColumnReader : public StructColumnReader {
       }
       auto childFileType = fileType_->childByName(childSpec->fieldName());
       auto childRequestedType = requestedType_->as<TypeKind::ROW>().findChild(
-          folly::StringPiece(childSpec->fieldName()));
+          childSpec->fieldName());
       auto childParams = TestFormatParams(
           params.pool(), params.runtimeStatistics(), params.stripe());
 

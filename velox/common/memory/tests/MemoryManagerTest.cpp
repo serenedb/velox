@@ -33,7 +33,7 @@ using namespace ::testing;
 namespace facebook::velox::memory {
 
 namespace {
-constexpr folly::StringPiece kSysRootName{"__sys_root__"};
+constexpr std::string_view kSysRootName{"__sys_root__"};
 
 MemoryManager& toMemoryManager(MemoryManager& manager) {
   return *static_cast<MemoryManager*>(&manager);

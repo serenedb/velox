@@ -65,7 +65,7 @@ class PagedOutputStream : public BufferedOutputStream {
 
  private:
   // create page using compressor and encryptor
-  std::vector<folly::StringPiece> createPage();
+  std::vector<std::string_view> createPage();
 
   void writeHeader(char* buffer, size_t compressedSize, bool original);
 

@@ -166,7 +166,7 @@ TEST_F(
     getOwnedValueCanBeCalledWithStringPieceType) {
   const char* buf = "abcdefghijklmnopqrstuvxz";
   StringView result;
-  folly::StringPiece piece;
+  std::string_view piece;
 
   auto holder = makeHolder();
   ASSERT_EQ(0, holder.buffers().size());

@@ -48,7 +48,7 @@ SelectiveStructColumnReader::SelectiveStructColumnReader(
     }
     auto childFileType = fileType_->childByName(childSpec->fieldName());
     auto childRequestedType = requestedType_->as<TypeKind::ROW>().findChild(
-        folly::StringPiece(childSpec->fieldName()));
+        childSpec->fieldName());
     auto childParams = NimbleFormatParams(
         params.pool(), params.runtimeStatistics(), params.stripe());
 

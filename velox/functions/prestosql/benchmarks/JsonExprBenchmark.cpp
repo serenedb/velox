@@ -59,8 +59,8 @@ struct FollyJsonExtractScalarFunction {
       out_type<Varchar>& result,
       const arg_type<Json>& json,
       const arg_type<Varchar>& jsonPath) {
-    const folly::StringPiece& jsonStringPiece = json;
-    const folly::StringPiece& jsonPathStringPiece = jsonPath;
+    const std::string_view jsonStringPiece = json;
+    const std::string_view jsonPathStringPiece = jsonPath;
     auto extractResult =
         jsonExtractScalar(jsonStringPiece, jsonPathStringPiece);
     if (extractResult.has_value()) {
@@ -81,7 +81,7 @@ struct FollyJsonExtractFunction {
       const arg_type<Json>& json,
       const arg_type<Varchar>& jsonPath) {
     auto extractResult =
-        jsonExtract(folly::StringPiece(json), folly::StringPiece(jsonPath));
+        jsonExtract(std::string_view(json), std::string_view(jsonPath));
     if (!extractResult.has_value() || extractResult.value().isNull()) {
       return false;
     }
@@ -159,8 +159,8 @@ struct FollyJsonSizeFunction {
       int64_t& result,
       const arg_type<Json>& json,
       const arg_type<Varchar>& jsonPath) {
-    const folly::StringPiece& jsonStringPiece = json;
-    const folly::StringPiece& jsonPathStringPiece = jsonPath;
+    std::string_view jsonStringPiece = json;
+    std::string_view jsonPathStringPiece = jsonPath;
     auto extractResult = jsonExtract(jsonStringPiece, jsonPathStringPiece);
     if (!extractResult.has_value()) {
       return false;

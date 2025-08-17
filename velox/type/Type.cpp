@@ -354,7 +354,7 @@ std::string makeFieldNotFoundErrorMessage(
 }
 } // namespace
 
-const TypePtr& RowType::findChild(folly::StringPiece name) const {
+const TypePtr& RowType::findChild(std::string_view name) const {
   for (uint32_t i = 0; i < names_.size(); ++i) {
     if (names_.at(i) == name) {
       return children_.at(i);
@@ -1172,7 +1172,7 @@ std::string DateType::toIso8601(int32_t days) {
   return result;
 }
 
-int32_t DateType::toDays(folly::StringPiece in) const {
+int32_t DateType::toDays(std::string_view in) const {
   return toDays(in.data(), in.size());
 }
 

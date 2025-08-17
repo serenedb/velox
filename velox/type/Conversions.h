@@ -127,8 +127,9 @@ Expected<bool> castToBoolean(const char* data, size_t len) {
     }
   }
 
-  return folly::makeUnexpected(Status::UserError(
-      "Cannot cast {} to BOOLEAN", std::string_view(data, len)));
+  return folly::makeUnexpected(
+      Status::UserError(
+          "Cannot cast {} to BOOLEAN", std::string_view(data, len)));
 }
 
 namespace detail {
@@ -140,8 +141,9 @@ Expected<T> callFollyTo(const F& v) {
     if (threadSkipErrorDetails()) {
       return folly::makeUnexpected(Status::UserError());
     }
-    return folly::makeUnexpected(Status::UserError(
-        "{}", folly::makeConversionError(result.error(), "").what()));
+    return folly::makeUnexpected(
+        Status::UserError(
+            "{}", folly::makeConversionError(result.error(), "").what()));
   }
 
   return result.value();
@@ -164,16 +166,8 @@ struct Converter<TypeKind::BOOLEAN, void, TPolicy> {
     return detail::callFollyTo<T>(v);
   }
 
-  static Expected<T> tryCast(folly::StringPiece v) {
+  static Expected<T> tryCast(std::string_view v) {
     return castToBoolean<TPolicy>(v.data(), v.size());
-  }
-
-  static Expected<T> tryCast(const StringView& v) {
-    return castToBoolean<TPolicy>(v.data(), v.size());
-  }
-
-  static Expected<T> tryCast(const std::string& v) {
-    return castToBoolean<TPolicy>(v.data(), v.length());
   }
 
   static Expected<T> tryCast(const bool& v) {
@@ -235,14 +229,15 @@ struct Converter<TypeKind::BOOLEAN, void, TPolicy> {
   }
 
   static Expected<T> tryCast(const Timestamp&) {
-    return folly::makeUnexpected(Status::UserError(
-        "Conversion of Timestamp to Boolean is not supported"));
+    return folly::makeUnexpected(
+        Status::UserError(
+            "Conversion of Timestamp to Boolean is not supported"));
   }
 };
 
 /// Presto compatible trim of whitespace. This also trims
 /// control characters from both front and back and returns
-/// a StringView of the trimmed string.
+/// a std::string_view of the trimmed string.
 std::string_view trimWhiteSpace(const char* data, size_t length);
 
 /// To TINYINT, SMALLINT, INTEGER, BIGINT, and HUGEINT converter.
@@ -265,14 +260,15 @@ struct Converter<
     return folly::makeUnexpected(Status::UserError(kErrorMessage));
   }
 
-  static Expected<T> convertStringToInt(const folly::StringPiece v) {
+  static Expected<T> convertStringToInt(const std::string_view v) {
     // Handling integer target cases
     T result = 0;
     int index = 0;
     int len = v.size();
     if (len == 0) {
-      return folly::makeUnexpected(Status::UserError(
-          "Cannot cast an empty string to an integral value."));
+      return folly::makeUnexpected(
+          Status::UserError(
+              "Cannot cast an empty string to an integral value."));
     }
 
     // Setting negative flag
@@ -281,8 +277,9 @@ struct Converter<
     bool decimalPoint = false;
     if (v[0] == '-' || v[0] == '+') {
       if (len == 1) {
-        return folly::makeUnexpected(Status::UserError(
-            "Cannot cast an '{}' string to an integral value.", v[0]));
+        return folly::makeUnexpected(
+            Status::UserError(
+                "Cannot cast an '{}' string to an integral value.", v[0]));
       }
       negative = v[0] == '-';
       index = 1;
@@ -328,29 +325,11 @@ struct Converter<
     return result;
   }
 
-  static Expected<T> tryCast(folly::StringPiece v) {
+  static Expected<T> tryCast(std::string_view v) {
     if constexpr (TPolicy::truncate) {
       return convertStringToInt(v);
     } else {
       auto trimmed = trimWhiteSpace(v.data(), v.size());
-      return detail::callFollyTo<T>(trimmed);
-    }
-  }
-
-  static Expected<T> tryCast(const StringView& v) {
-    if constexpr (TPolicy::truncate) {
-      return convertStringToInt(folly::StringPiece(v));
-    } else {
-      auto trimmed = trimWhiteSpace(v.data(), v.size());
-      return detail::callFollyTo<T>(trimmed);
-    }
-  }
-
-  static Expected<T> tryCast(const std::string& v) {
-    if constexpr (TPolicy::truncate) {
-      return convertStringToInt(v);
-    } else {
-      auto trimmed = trimWhiteSpace(v.data(), v.length());
       return detail::callFollyTo<T>(trimmed);
     }
   }
@@ -500,16 +479,8 @@ struct Converter<
     return detail::callFollyTo<T>(v);
   }
 
-  static Expected<T> tryCast(folly::StringPiece v) {
-    return tryCast<folly::StringPiece>(v);
-  }
-
-  static Expected<T> tryCast(const StringView& v) {
-    return tryCast<folly::StringPiece>(folly::StringPiece(v));
-  }
-
-  static Expected<T> tryCast(const std::string& v) {
-    return tryCast<std::string>(v);
+  static Expected<T> tryCast(std::string_view v) {
+    return tryCast<std::string_view>(v);
   }
 
   static Expected<T> tryCast(const bool& v) {
@@ -555,8 +526,9 @@ struct Converter<
   }
 
   static Expected<T> tryCast(const Timestamp&) {
-    return folly::makeUnexpected(Status::UserError(
-        "Conversion of Timestamp to Real or Double is not supported"));
+    return folly::makeUnexpected(
+        Status::UserError(
+            "Conversion of Timestamp to Real or Double is not supported"));
   }
 };
 
@@ -680,17 +652,7 @@ struct Converter<TypeKind::TIMESTAMP, void, TPolicy> {
         Status::UserError("Conversion to Timestamp is not supported"));
   }
 
-  static Expected<Timestamp> tryCast(folly::StringPiece v) {
-    return fromTimestampString(
-        v.data(), v.size(), TimestampParseMode::kPrestoCast);
-  }
-
-  static Expected<Timestamp> tryCast(const StringView& v) {
-    return fromTimestampString(
-        v.data(), v.size(), TimestampParseMode::kPrestoCast);
-  }
-
-  static Expected<Timestamp> tryCast(const std::string& v) {
+  static Expected<Timestamp> tryCast(std::string_view v) {
     return fromTimestampString(
         v.data(), v.size(), TimestampParseMode::kPrestoCast);
   }

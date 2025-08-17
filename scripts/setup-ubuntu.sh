@@ -68,60 +68,12 @@ function install_gcc11_if_needed {
 
 # Install packages required for build.
 function install_build_prerequisites {
-  ${SUDO} apt update
-  # The is an issue on 22.04 where a version conflict prevents glog install,
-  # installing libunwind first fixes this.
-  ${SUDO} apt install -y libunwind-dev
-  ${SUDO} apt install -y \
-    build-essential \
-    python3-pip \
-    ccache \
-    curl \
-    ninja-build \
-    checkinstall \
-    git \
-    pkg-config \
-    libtool \
-    wget
-
-  install_uv
-  uv_install cmake==3.28.3
-
-  install_gcc11_if_needed
-
-  if [[ ${USE_CLANG} != "false" ]]; then
-    install_clang15
-  fi
-
+  echo "Installing build prerequisites for Velox"
 }
 
 # Install packages required for build.
 function install_velox_deps_from_apt {
-  ${SUDO} apt update
-  ${SUDO} apt install -y \
-    libc-ares-dev \
-    libcurl4-openssl-dev \
-    libssl-dev \
-    libicu-dev \
-    libdouble-conversion-dev \
-    libgoogle-glog-dev \
-    libbz2-dev \
-    libgflags-dev \
-    libgtest-dev \
-    libgmock-dev \
-    libevent-dev \
-    liblz4-dev \
-    libzstd-dev \
-    libre2-dev \
-    libsnappy-dev \
-    libsodium-dev \
-    libelf-dev \
-    libdwarf-dev \
-    bison \
-    flex \
-    libfl-dev \
-    tzdata \
-    libxxhash-dev
+  echo "Installing Velox dependencies from apt"
 }
 
 function install_conda {

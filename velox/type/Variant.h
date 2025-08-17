@@ -78,7 +78,7 @@ struct VariantTypeTraits<
     std::enable_if_t<
         KIND == TypeKind::VARCHAR || KIND == TypeKind::VARBINARY,
         void>> {
-  using native_type = folly::StringPiece;
+  using native_type = std::string_view;
   using stored_type =
       TypeStorage<scalar_stored_type<KIND>, KIND, usesCustomComparison>;
   using value_type = scalar_stored_type<KIND>;
@@ -218,7 +218,7 @@ class Variant {
       typename detail::VariantTypeTraits<TypeKind::VARCHAR, false>::native_type
           v)
       : ptr_{new detail::VariantTypeTraits<TypeKind::VARCHAR, false>::
-                 stored_type{v.str()}},
+                 stored_type{std::string{v}}},
         kind_{TypeKind::VARCHAR},
         usesCustomComparison_{false} {}
 
@@ -336,20 +336,6 @@ class Variant {
     }
   }
 
-  // Support construction from StringView as well as StringPiece.
-  /* implicit */ Variant(StringView view) : Variant{folly::StringPiece{view}} {}
-
-  // Break ties between implicit conversions to StringView/StringPiece.
-  /* implicit */ Variant(std::string str)
-      : ptr_{new std::string{std::move(str)}},
-        kind_{TypeKind::VARCHAR},
-        usesCustomComparison_(false) {}
-
-  /* implicit */ Variant(const char* str)
-      : ptr_{new std::string{str}},
-        kind_{TypeKind::VARCHAR},
-        usesCustomComparison_(false) {}
-
   template <TypeKind KIND>
   static Variant create(
       typename detail::VariantTypeTraits<KIND, false>::value_type&& v) {
@@ -368,9 +354,9 @@ class Variant {
   }
 
   template <typename T>
-  static Variant create(const typename detail::VariantTypeTraits<
-                        CppToType<T>::typeKind,
-                        false>::value_type& v) {
+  static Variant create(
+      const typename detail::VariantTypeTraits<CppToType<T>::typeKind, false>::
+          value_type& v) {
     return create<CppToType<T>::typeKind>(v);
   }
 

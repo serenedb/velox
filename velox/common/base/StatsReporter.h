@@ -90,12 +90,8 @@ class BaseStatsReporter {
   /// Register a stat of the given stat type.
   /// @param key The key to identify the stat.
   /// @param statType How the stat is aggregated.
-  virtual void registerMetricExportType(const char* key, StatType statType)
+  virtual void registerMetricExportType(std::string_view key, StatType statType)
       const = 0;
-
-  virtual void registerMetricExportType(
-      folly::StringPiece key,
-      StatType statType) const = 0;
 
   /// Register a histogram with a list of percentiles defined.
   /// @param key The key to identify the histogram.
@@ -104,35 +100,17 @@ class BaseStatsReporter {
   /// @param max The ending value of the buckets.
   /// @param pcts The aggregated percentiles to be reported.
   virtual void registerHistogramMetricExportType(
-      const char* key,
-      int64_t bucketWidth,
-      int64_t min,
-      int64_t max,
-      const std::vector<int32_t>& pcts) const = 0;
-
-  virtual void registerHistogramMetricExportType(
-      folly::StringPiece key,
+      std::string_view key,
       int64_t bucketWidth,
       int64_t min,
       int64_t max,
       const std::vector<int32_t>& pcts) const = 0;
 
   /// Add the given value to the stat.
-  virtual void addMetricValue(const std::string& key, size_t value = 1)
-      const = 0;
-
-  virtual void addMetricValue(const char* key, size_t value = 1) const = 0;
-
-  virtual void addMetricValue(folly::StringPiece key, size_t value = 1)
-      const = 0;
+  virtual void addMetricValue(std::string_view key, size_t value = 1) const = 0;
 
   /// Add the given value to the histogram.
-  virtual void addHistogramMetricValue(const std::string& key, size_t value)
-      const = 0;
-
-  virtual void addHistogramMetricValue(const char* key, size_t value) const = 0;
-
-  virtual void addHistogramMetricValue(folly::StringPiece key, size_t value)
+  virtual void addHistogramMetricValue(std::string_view key, size_t value)
       const = 0;
 
   /// Return the aggregated metrics in a serialized string format.
@@ -144,43 +122,20 @@ class BaseStatsReporter {
 // This is a dummy reporter that does nothing
 class DummyStatsReporter : public BaseStatsReporter {
  public:
-  void registerMetricExportType(const char* /*key*/, StatType /*statType*/)
+  void registerMetricExportType(std::string_view /*key*/, StatType /*statType*/)
       const override {}
 
-  void registerMetricExportType(
-      folly::StringPiece /*key*/,
-      StatType /*statType*/) const override {}
-
   void registerHistogramMetricExportType(
-      const char* /*key*/,
+      std::string_view /* key */,
       int64_t /* bucketWidth */,
       int64_t /* min */,
       int64_t /* max */,
       const std::vector<int32_t>& /* pcts */) const override {}
 
-  void registerHistogramMetricExportType(
-      folly::StringPiece /* key */,
-      int64_t /* bucketWidth */,
-      int64_t /* min */,
-      int64_t /* max */,
-      const std::vector<int32_t>& /* pcts */) const override {}
-
-  void addMetricValue(const std::string& /* key */, size_t /* value */)
+  void addMetricValue(std::string_view /* key */, size_t /* value */)
       const override {}
 
-  void addMetricValue(const char* /* key */, size_t /* value */)
-      const override {}
-
-  void addMetricValue(folly::StringPiece /* key */, size_t /* value */)
-      const override {}
-
-  void addHistogramMetricValue(const std::string& /* key */, size_t /* value */)
-      const override {}
-
-  void addHistogramMetricValue(const char* /* key */, size_t /* value */)
-      const override {}
-
-  void addHistogramMetricValue(folly::StringPiece /* key */, size_t /* value */)
+  void addHistogramMetricValue(std::string_view /* key */, size_t /* value */)
       const override {}
 
   std::string fetchMetrics() override {

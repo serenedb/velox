@@ -462,10 +462,10 @@ static const std::unordered_map<std::string, core::AggregationNode::Step>
 /// Companion functions allow us to override the planNode's step and use
 /// aggregations of different steps in the same planNode
 core::AggregationNode::Step getCompanionStep(
-    std::string const& kind,
+    std::string_view kind,
     core::AggregationNode::Step step) {
   for (const auto& [k, v] : companionStep) {
-    if (folly::StringPiece(kind).endsWith(k)) {
+    if (kind.ends_with(k)) {
       step = v;
       break;
     }
@@ -473,19 +473,20 @@ core::AggregationNode::Step getCompanionStep(
   return step;
 }
 
-std::string getOriginalName(std::string const& kind) {
+std::string getOriginalName(std::string_view kind) {
   for (const auto& [k, v] : companionStep) {
-    if (folly::StringPiece(kind).endsWith(k)) {
-      return kind.substr(0, kind.length() - k.length());
+    if (kind.ends_with(k)) {
+      kind.remove_suffix(k.length());
+      break;
     }
   }
-  return kind;
+  return std::string{kind};
 }
 
 bool hasFinalAggs(
     std::vector<core::AggregationNode::Aggregate> const& aggregates) {
   return std::any_of(aggregates.begin(), aggregates.end(), [](auto const& agg) {
-    return folly::StringPiece(agg.call->name()).endsWith("_merge_extract");
+    return agg.call->name().ends_with("_merge_extract");
   });
 }
 
@@ -846,8 +847,9 @@ CudfVectorPtr CudfHashAggregation::doGlobalAggregation(
   std::vector<std::unique_ptr<cudf::column>> resultColumns;
   resultColumns.reserve(aggregators_.size());
   for (auto i = 0; i < aggregators_.size(); i++) {
-    resultColumns.push_back(aggregators_[i]->doReduce(
-        tbl->view(), outputType_->childAt(i), stream));
+    resultColumns.push_back(
+        aggregators_[i]->doReduce(
+            tbl->view(), outputType_->childAt(i), stream));
   }
 
   return std::make_shared<cudf_velox::CudfVector>(

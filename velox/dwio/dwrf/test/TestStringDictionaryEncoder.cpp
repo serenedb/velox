@@ -35,10 +35,10 @@ class TestStringDictionaryEncoder : public ::testing::Test {
 TEST_F(TestStringDictionaryEncoder, AddKey) {
   struct TestCase {
     explicit TestCase(
-        const std::vector<folly::StringPiece>& addKeySequence,
+        const std::vector<std::string_view>& addKeySequence,
         const std::vector<size_t>& encodedSequence)
         : addKeySequence{addKeySequence}, encodedSequence{encodedSequence} {}
-    std::vector<folly::StringPiece> addKeySequence;
+    std::vector<std::string_view> addKeySequence;
     std::vector<size_t> encodedSequence;
   };
 
@@ -63,14 +63,14 @@ TEST_F(TestStringDictionaryEncoder, AddKey) {
 TEST_F(TestStringDictionaryEncoder, GetIndex) {
   struct TestCase {
     explicit TestCase(
-        const std::vector<folly::StringPiece>& addKeySequence,
-        const std::vector<folly::StringPiece>& getIndexSequence,
+        const std::vector<std::string_view>& addKeySequence,
+        const std::vector<std::string_view>& getIndexSequence,
         const std::vector<size_t>& encodedSequence)
         : addKeySequence{addKeySequence},
           getIndexSequence{getIndexSequence},
           encodedSequence{encodedSequence} {}
-    std::vector<folly::StringPiece> addKeySequence;
-    std::vector<folly::StringPiece> getIndexSequence;
+    std::vector<std::string_view> addKeySequence;
+    std::vector<std::string_view> getIndexSequence;
     std::vector<size_t> encodedSequence;
   };
 
@@ -111,14 +111,14 @@ TEST_F(TestStringDictionaryEncoder, GetIndex) {
 TEST_F(TestStringDictionaryEncoder, GetCount) {
   struct TestCase {
     explicit TestCase(
-        const std::vector<folly::StringPiece>& addKeySequence,
-        const std::vector<folly::StringPiece>& getCountSequence,
+        const std::vector<std::string_view>& addKeySequence,
+        const std::vector<std::string_view>& getCountSequence,
         const std::vector<size_t>& countSequence)
         : addKeySequence{addKeySequence},
           getCountSequence{getCountSequence},
           countSequence{countSequence} {}
-    std::vector<folly::StringPiece> addKeySequence;
-    std::vector<folly::StringPiece> getCountSequence;
+    std::vector<std::string_view> addKeySequence;
+    std::vector<std::string_view> getCountSequence;
     std::vector<size_t> countSequence;
   };
 
@@ -161,15 +161,15 @@ TEST_F(TestStringDictionaryEncoder, GetCount) {
 TEST_F(TestStringDictionaryEncoder, GetStride) {
   struct TestCase {
     explicit TestCase(
-        const std::vector<std::pair<folly::StringPiece, size_t>>&
+        const std::vector<std::pair<std::string_view, size_t>>&
             addKeySequence,
-        const std::vector<folly::StringPiece>& getStrideSequence,
+        const std::vector<std::string_view>& getStrideSequence,
         const std::vector<size_t>& strideSequence)
         : addKeySequence{addKeySequence},
           getStrideSequence{getStrideSequence},
           strideSequence{strideSequence} {}
-    std::vector<std::pair<folly::StringPiece, size_t>> addKeySequence;
-    std::vector<folly::StringPiece> getStrideSequence;
+    std::vector<std::pair<std::string_view, size_t>> addKeySequence;
+    std::vector<std::string_view> getStrideSequence;
     std::vector<size_t> strideSequence;
   };
 
@@ -255,13 +255,13 @@ TEST_F(TestStringDictionaryEncoder, MemBenchmark) {
 TEST_F(TestStringDictionaryEncoder, Limit) {
   auto pool = memoryManager()->addLeafPool();
   StringDictionaryEncoder encoder{*pool, *pool};
-  encoder.addKey(folly::StringPiece{"abc"}, 0);
+  encoder.addKey(std::string_view{"abc"}, 0);
   dwio::common::DataBuffer<char> buf{*pool};
   buf.resize(std::numeric_limits<uint32_t>::max());
 
   ASSERT_THROW(
       encoder.addKey(
-          folly::StringPiece{
+          std::string_view{
               buf.data(), std::numeric_limits<uint32_t>::max() - 3},
           0),
       dwio::common::exception::LoggedException);

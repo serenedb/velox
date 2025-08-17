@@ -252,7 +252,7 @@ uint32_t updateKeyStatistics<TypeKind::VARCHAR>(
     StringView value,
     uint64_t count) {
   auto size = value.size();
-  keyStatsBuilder.addValues(folly::StringPiece{value.data(), size}, count);
+  keyStatsBuilder.addValues(std::string_view{value.data(), size}, count);
   return size * count;
 }
 

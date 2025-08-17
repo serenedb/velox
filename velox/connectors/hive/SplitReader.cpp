@@ -48,7 +48,7 @@ VectorPtr newConstantFromString(
     if (isPartitionDateDaysSinceEpoch) {
       days = folly::to<int32_t>(value.value());
     } else {
-      days = DATE()->toDays(static_cast<folly::StringPiece>(value.value()));
+      days = DATE()->toDays(value.value());
     }
     return std::make_shared<ConstantVector<int32_t>>(
         pool, size, false, type, std::move(days));
@@ -417,10 +417,11 @@ std::vector<TypePtr> SplitReader::adaptColumns(
       if (!fileTypeIdx.has_value()) {
         // Column is missing. Most likely due to schema evolution.
         VELOX_CHECK(tableSchema, "Unable to resolve column '{}'", fieldName);
-        childSpec->setConstantValue(BaseVector::createNullConstant(
-            tableSchema->findChild(fieldName),
-            1,
-            connectorQueryCtx_->memoryPool()));
+        childSpec->setConstantValue(
+            BaseVector::createNullConstant(
+                tableSchema->findChild(fieldName),
+                1,
+                connectorQueryCtx_->memoryPool()));
       } else {
         // Column no longer missing, reset constant value set on the spec.
         childSpec->setConstantValue(nullptr);

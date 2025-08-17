@@ -22,8 +22,10 @@
 
 namespace facebook::velox::exec {
 
-constexpr folly::StringPiece kCast = "cast";
-constexpr folly::StringPiece kTryCast = "try_cast";
+// TODO: Make std::string_view, but needs to change some signatures
+// from `const std::string&` to `std::string_view`
+inline constexpr auto kCast = "cast";
+inline constexpr auto kTryCast = "try_cast";
 
 /// Custom operator for casts from and to custom types.
 class CastOperator {
@@ -93,7 +95,7 @@ class CastExpr : public SpecialForm {
             SpecialFormKind::kCast,
             type,
             std::vector<ExprPtr>({expr}),
-            isTryCast ? kTryCast.data() : kCast.data(),
+            isTryCast ? kTryCast : kCast,
             false /* supportsFlatNoNullsFastPath */,
             trackCpuUsage),
         isTryCast_(isTryCast),

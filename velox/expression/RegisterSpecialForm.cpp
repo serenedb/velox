@@ -31,9 +31,9 @@ void registerFunctionCallToSpecialForms() {
   registerFunctionCallToSpecialForm(
       kAnd, std::make_unique<ConjunctCallToSpecialForm>(true /* isAnd */));
   registerFunctionCallToSpecialForm(
-      kCast.str(), std::make_unique<CastCallToSpecialForm>());
+      kCast, std::make_unique<CastCallToSpecialForm>());
   registerFunctionCallToSpecialForm(
-      kTryCast.str(), std::make_unique<TryCastCallToSpecialForm>());
+      kTryCast, std::make_unique<TryCastCallToSpecialForm>());
   registerFunctionCallToSpecialForm(
       kCoalesce, std::make_unique<CoalesceCallToSpecialForm>());
   registerFunctionCallToSpecialForm(

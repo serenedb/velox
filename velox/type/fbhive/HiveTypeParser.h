@@ -77,7 +77,7 @@ struct TokenMetadata {
 
 struct Token {
   TokenMetadata* metadata;
-  folly::StringPiece value;
+  std::string_view value;
 
   TokenType tokenType() const;
 
@@ -93,7 +93,7 @@ struct Token {
 };
 
 struct TokenAndRemaining : public Token {
-  folly::StringPiece remaining;
+  std::string_view remaining;
 };
 
 struct Result {
@@ -125,12 +125,12 @@ class HiveTypeParser {
   Token nextToken(bool ignorePredefined = false);
 
   TokenAndRemaining nextToken(
-      folly::StringPiece sp,
+      std::string_view sp,
       bool ignorePredefined = false) const;
 
   TokenAndRemaining makeExtendedToken(
       TokenMetadata* tokenMetadata,
-      folly::StringPiece sp,
+      std::string_view sp,
       size_t len) const;
 
   template <TokenType KIND, velox::TypeKind TYPEKIND>
@@ -149,7 +149,7 @@ class HiveTypeParser {
   TokenMetadata* getMetadata(TokenType type) const;
 
   std::vector<std::unique_ptr<TokenMetadata>> metadata_;
-  folly::StringPiece remaining_;
+  std::string_view remaining_;
 };
 
 } // namespace facebook::velox::type::fbhive

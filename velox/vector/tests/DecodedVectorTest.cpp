@@ -479,7 +479,7 @@ template <>
 void DecodedVectorTest::testConstant<StringView>(const StringView& value) {
   auto val = value.getString();
   auto constantVector = BaseVector::createConstant(
-      VARCHAR(), folly::StringPiece{val}, 100, pool_.get());
+      VARCHAR(), std::string_view{val}, 100, pool_.get());
 
   auto check = [&](auto& decoded) {
     EXPECT_TRUE(decoded.isConstantMapping());
