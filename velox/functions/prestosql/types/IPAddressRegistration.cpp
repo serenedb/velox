@@ -18,7 +18,6 @@
 
 #include <limits>
 
-#include "velox/common/fuzzer/ConstrainedGenerators.h"
 #include "velox/expression/CastExpr.h"
 #include "velox/functions/prestosql/types/IPAddressType.h"
 #include "velox/functions/prestosql/types/IPPrefixType.h"
@@ -272,12 +271,7 @@ class IPAddressTypeFactory : public CustomTypeFactory {
 
   AbstractInputGeneratorPtr getInputGenerator(
       const InputGeneratorConfig& config) const override {
-    return std::make_shared<fuzzer::RangeConstrainedGenerator<int128_t>>(
-        config.seed_,
-        IPADDRESS(),
-        config.nullRatio_,
-        0,
-        std::numeric_limits<int128_t>::max());
+    return nullptr;
   }
 };
 } // namespace
