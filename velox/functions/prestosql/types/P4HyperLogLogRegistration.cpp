@@ -21,7 +21,6 @@
 #include "velox/expression/CastExpr.h"
 #include "velox/functions/prestosql/types/HyperLogLogType.h"
 #include "velox/functions/prestosql/types/P4HyperLogLogType.h"
-#include "velox/functions/prestosql/types/fuzzer_utils/P4HyperLogLogInputGenerator.h"
 
 namespace facebook::velox {
 namespace {
@@ -152,9 +151,7 @@ class P4HyperLogLogTypeFactory : public CustomTypeFactory {
 
   AbstractInputGeneratorPtr getInputGenerator(
       const InputGeneratorConfig& config) const override {
-    return std::static_pointer_cast<AbstractInputGenerator>(
-        std::make_shared<fuzzer::P4HyperLogLogInputGenerator>(
-            config.seed_, config.nullRatio_, config.pool_));
+    return nullptr;
   }
 };
 } // namespace
