@@ -279,8 +279,7 @@ class TimeWithTimezoneTypeFactory : public CustomTypeFactory {
 
   AbstractInputGeneratorPtr getInputGenerator(
       const InputGeneratorConfig& config) const override {
-    return std::make_shared<fuzzer::TimeWithTimezoneInputGenerator>(
-        config.seed_, config.nullRatio_);
+    return nullptr;
   }
 };
 
