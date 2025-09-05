@@ -17,7 +17,6 @@
 #include "velox/functions/prestosql/types/P4HyperLogLogRegistration.h"
 
 #include "velox/functions/prestosql/types/P4HyperLogLogType.h"
-#include "velox/functions/prestosql/types/fuzzer_utils/P4HyperLogLogInputGenerator.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox {
@@ -36,8 +35,7 @@ class P4HyperLogLogTypeFactory : public CustomTypeFactory {
 
   AbstractInputGeneratorPtr getInputGenerator(
       const InputGeneratorConfig& config) const override {
-    return std::make_shared<fuzzer::P4HyperLogLogInputGenerator>(
-        config.seed_, config.nullRatio_, config.pool_);
+    return nullptr;
   }
 };
 } // namespace
