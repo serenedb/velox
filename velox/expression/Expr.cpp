@@ -690,14 +690,13 @@ class ExprExceptionContext {
 std::string onTopLevelException(VeloxException::Type exceptionType, void* arg) {
   auto* context = static_cast<ExprExceptionContext*>(arg);
 
-  const char* basePath =
-      FLAGS_velox_save_input_on_expression_any_failure_path.c_str();
-  if (strlen(basePath) == 0 && exceptionType == VeloxException::Type::kSystem) {
-    basePath = FLAGS_velox_save_input_on_expression_system_failure_path.c_str();
+  std::string basePath = FLAGS_velox_save_input_on_expression_any_failure_path;
+  if (basePath.empty() && exceptionType == VeloxException::Type::kSystem) {
+    basePath = FLAGS_velox_save_input_on_expression_system_failure_path;
   }
 
   const auto& owner = context->expr()->vectorFunctionMetadata().owner;
-  if (strlen(basePath) == 0) {
+  if (basePath.empty()) {
     if (owner.empty()) {
       return fmt::format(
           "Top-level Expression: {}", context->expr()->toString());
@@ -709,7 +708,7 @@ std::string onTopLevelException(VeloxException::Type exceptionType, void* arg) {
   }
 
   // Save input vector to a file.
-  context->persistDataAndSql(basePath);
+  context->persistDataAndSql(basePath.c_str());
 
   if (owner.empty()) {
     return fmt::format(
@@ -1975,17 +1974,16 @@ namespace {
 void printInputAndExprs(
     const BaseVector* vector,
     const std::vector<std::shared_ptr<Expr>>& exprs) {
-  const char* basePath =
-      FLAGS_velox_save_input_on_expression_any_failure_path.c_str();
-  if (strlen(basePath) == 0) {
-    basePath = FLAGS_velox_save_input_on_expression_system_failure_path.c_str();
+  std::string basePath = FLAGS_velox_save_input_on_expression_any_failure_path;
+  if (basePath.empty()) {
+    basePath = FLAGS_velox_save_input_on_expression_system_failure_path;
   }
-  if (strlen(basePath) == 0) {
+  if (basePath.empty()) {
     return;
   }
   // Persist vector to disk
   try {
-    auto dataPathOpt = common::generateTempFilePath(basePath, "vector");
+    auto dataPathOpt = common::generateTempFilePath(basePath.c_str(), "vector");
     if (!dataPathOpt.has_value()) {
       return;
     }
@@ -2003,7 +2001,8 @@ void printInputAndExprs(
       }
       allSql << exprs[i]->toSql();
     }
-    auto sqlPathOpt = common::generateTempFilePath(basePath, "allExprSql");
+    auto sqlPathOpt =
+        common::generateTempFilePath(basePath.c_str(), "allExprSql");
     if (!sqlPathOpt.has_value()) {
       return;
     }
