@@ -62,10 +62,10 @@ class OpaqueCustomTypeRegister {
 
   class VeloxType : public OpaqueType {
    public:
-    VeloxType() : OpaqueType(std::type_index(typeid(T))) {}
+    constexpr VeloxType() : OpaqueType(std::type_index(typeid(T))) {}
 
     static VeloxTypePtr get() {
-      static const VeloxType kInstance;
+      static constexpr VeloxType kInstance;
       return {VeloxTypePtr{}, &kInstance};
     }
 
