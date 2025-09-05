@@ -27,6 +27,5 @@ add_subdirectory(process)
 add_subdirectory(serialization)
 add_subdirectory(time)
 add_subdirectory(testutil)
-add_subdirectory(fuzzer)
 
 velox_install_library_headers()
