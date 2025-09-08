@@ -12,15 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 include_guard(GLOBAL)
-function(get_rpath_origin VAR)
+function(velox_get_rpath_origin VAR)
   if(APPLE)
     set(_origin @loader_path)
   else()
     set(_origin "\$ORIGIN")
   endif()
-  set(${VAR}
-      ${_origin}
-      PARENT_SCOPE)
+  set(${VAR} ${_origin} PARENT_SCOPE)
 endfunction()
 
 function(pyvelox_add_module TARGET)
@@ -41,12 +39,7 @@ function(velox_add_library TARGET)
   set(options OBJECT STATIC SHARED INTERFACE)
   set(oneValueArgs)
   set(multiValueArgs)
-  cmake_parse_arguments(
-    VELOX
-    "${options}"
-    "${oneValueArgs}"
-    "${multiValueArgs}"
-    ${ARGN})
+  cmake_parse_arguments(VELOX "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
   # Remove library type specifiers from ARGN
   set(library_type)
@@ -76,10 +69,8 @@ function(velox_add_library TARGET)
       endif()
       # Create the target if this is the first invocation.
       add_library(velox ${_type} ${ARGN})
-      set_target_properties(velox PROPERTIES LIBRARY_OUTPUT_DIRECTORY
-                                             ${PROJECT_BINARY_DIR}/lib)
-      set_target_properties(velox PROPERTIES ARCHIVE_OUTPUT_DIRECTORY
-                                             ${PROJECT_BINARY_DIR}/lib)
+      set_target_properties(velox PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+      set_target_properties(velox PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
     endif()
     # create alias for compatability
     if(NOT TARGET ${TARGET})
@@ -99,15 +90,17 @@ function(velox_link_libraries TARGET)
     # These targets follow the velox_* name for consistency but are NOT actually
     # aliases to velox when building the mono lib and need to be linked
     # explicitly (this is a hack)
-    set(explicit_targets
-        velox_exec_test_lib
-        # see velox/experimental/wave/README.md
-        velox_wave_common
-        velox_wave_decode
-        velox_wave_dwio
-        velox_wave_exec
-        velox_wave_stream
-        velox_wave_vector)
+    set(
+      explicit_targets
+      velox_exec_test_lib
+      # see velox/experimental/wave/README.md
+      velox_wave_common
+      velox_wave_decode
+      velox_wave_dwio
+      velox_wave_exec
+      velox_wave_stream
+      velox_wave_vector
+    )
 
     foreach(_arg ${ARGN})
       list(FIND explicit_targets ${_arg} _explicit)

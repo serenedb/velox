@@ -32,8 +32,7 @@ include(FetchContent)
 include(ExternalProject)
 include(ProcessorCount)
 include(CheckCXXCompilerFlag)
-list(APPEND CMAKE_MODULE_PATH
-     ${CMAKE_CURRENT_LIST_DIR}/resolve_dependency_modules)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/resolve_dependency_modules)
 
 # Enable SSL certificate verification for file downloads
 set(CMAKE_TLS_VERIFY true)
@@ -76,13 +75,9 @@ endmacro()
 # automatically! Use PARENT_SCOPE.
 function(velox_set_with_default var_name envvar_name default)
   if(DEFINED ENV{${envvar_name}})
-    set(${var_name}
-        $ENV{${envvar_name}}
-        PARENT_SCOPE)
+    set(${var_name} $ENV{${envvar_name}} PARENT_SCOPE)
   elseif(NOT DEFINED ${var_name})
-    set(${var_name}
-        ${default}
-        PARENT_SCOPE)
+    set(${var_name} ${default} PARENT_SCOPE)
   endif()
 endfunction()
 

@@ -25,32 +25,6 @@
 
 namespace facebook::velox {
 
-// Here are some common intel intrsic operations. Please refer to
-// https://software.intel.com/sites/landingpage/IntrinsicsGuide for examples.
-
-// _mm256_set1_epi<64x|32|16|8>(x) => set a 256bit vector with all values of x
-//    at the requested bit width
-// _mm256_cmpeq_epi<64|32|16|8>(a, b) => compare a vector of 8, 16, 32 or 64bit
-//    values in a vector with another vector. Result is a vector of all 0xFF..
-//    if the slot is equal between the two vectors or 0x00... if the slot is not
-//    equal between the two vectors
-// _mm256_cmpgt_epi<64|32|16|8>(a, b) => compare a vector of 8, 16, 32 or 64bit
-//    values in a vector with another vector. Result is a vector of all 0xFF..
-//    if the slot in `a` is greater than the slot in `b` or 0x00... otherwise
-// _mm256_loadu_si256(addr) => load 256 bits at addr into a single 256b
-// _mm256_movemask_ps(mask) -> Set each bit of mask dst based on the
-//    most significant bit of the corresponding packed single-precision (32-bit)
-//    floating-point element in a.
-// _mm256_testc_si256 => Compute bitwise AND of 2 256 bit vectors (see comment
-// blocks below for examples)
-
-// uses the simd utilities to smooth out access to variable width intrinsics
-
-// cost factors for individual operations on different filter paths - these are
-// experimentally derived from micro-bench perf testing.
-const double SIMD_CMP_COST = 0.00000051;
-const double SET_CMP_COST = 0.000023;
-
 template <typename T>
 const T* FlatVector<T>::rawValues() const {
   return rawValues_;

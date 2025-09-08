@@ -929,6 +929,7 @@ TEST_P(AllTableWriterTest, commitStrategies) {
         commitStrategy_);
 
     assertQuery(plan, "SELECT count(*) FROM tmp");
+
     if (partitionedBy_.size() > 0) {
       auto newOutputType =
           getNonPartitionsColumns(partitionedBy_, tableSchema_);
@@ -1433,6 +1434,7 @@ TEST_P(UnpartitionedTableWriterTest, differentCompression) {
     }
     if (compressionKind == CompressionKind_NONE ||
         compressionKind == CompressionKind_ZLIB ||
+        compressionKind == CompressionKind_GZIP ||
         compressionKind == CompressionKind_ZSTD) {
       auto result = AssertQueryBuilder(plan)
                         .config(
@@ -1910,51 +1912,41 @@ TEST_P(AllTableWriterTest, columnStatsDataTypes) {
   core::TypedExprPtr intInputField =
       std::make_shared<const core::FieldAccessTypedExpr>(SMALLINT(), "c2");
   auto minCallExpr = std::make_shared<const core::CallTypedExpr>(
-      SMALLINT(), std::vector<core::TypedExprPtr>{intInputField}, "min");
+      SMALLINT(), "min", intInputField);
   auto maxCallExpr = std::make_shared<const core::CallTypedExpr>(
-      SMALLINT(), std::vector<core::TypedExprPtr>{intInputField}, "max");
+      SMALLINT(), "max", intInputField);
   auto distinctCountCallExpr = std::make_shared<const core::CallTypedExpr>(
-      VARBINARY(),
-      std::vector<core::TypedExprPtr>{intInputField},
-      "approx_distinct");
+      VARBINARY(), "approx_distinct", intInputField);
 
   core::TypedExprPtr strInputField =
       std::make_shared<const core::FieldAccessTypedExpr>(VARCHAR(), "c5");
   auto maxDataSizeCallExpr = std::make_shared<const core::CallTypedExpr>(
-      BIGINT(),
-      std::vector<core::TypedExprPtr>{strInputField},
-      "max_data_size_for_stats");
+      BIGINT(), "max_data_size_for_stats", strInputField);
   auto sumDataSizeCallExpr = std::make_shared<const core::CallTypedExpr>(
-      BIGINT(),
-      std::vector<core::TypedExprPtr>{strInputField},
-      "sum_data_size_for_stats");
+      BIGINT(), "sum_data_size_for_stats", strInputField);
 
   core::TypedExprPtr boolInputField =
       std::make_shared<const core::FieldAccessTypedExpr>(BOOLEAN(), "c6");
   auto countCallExpr = std::make_shared<const core::CallTypedExpr>(
-      BIGINT(), std::vector<core::TypedExprPtr>{boolInputField}, "count");
+      BIGINT(), "count", boolInputField);
   auto countIfCallExpr = std::make_shared<const core::CallTypedExpr>(
-      BIGINT(), std::vector<core::TypedExprPtr>{boolInputField}, "count_if");
+      BIGINT(), "count_if", boolInputField);
 
   core::TypedExprPtr mapInputField =
       std::make_shared<const core::FieldAccessTypedExpr>(
           MAP(DATE(), BIGINT()), "c7");
   auto countMapCallExpr = std::make_shared<const core::CallTypedExpr>(
-      BIGINT(), std::vector<core::TypedExprPtr>{mapInputField}, "count");
+      BIGINT(), "count", mapInputField);
   auto sumDataSizeMapCallExpr = std::make_shared<const core::CallTypedExpr>(
-      BIGINT(),
-      std::vector<core::TypedExprPtr>{mapInputField},
-      "sum_data_size_for_stats");
+      BIGINT(), "sum_data_size_for_stats", mapInputField);
 
   core::TypedExprPtr arrayInputField =
       std::make_shared<const core::FieldAccessTypedExpr>(
           MAP(DATE(), BIGINT()), "c7");
   auto countArrayCallExpr = std::make_shared<const core::CallTypedExpr>(
-      BIGINT(), std::vector<core::TypedExprPtr>{mapInputField}, "count");
+      BIGINT(), "count", mapInputField);
   auto sumDataSizeArrayCallExpr = std::make_shared<const core::CallTypedExpr>(
-      BIGINT(),
-      std::vector<core::TypedExprPtr>{mapInputField},
-      "sum_data_size_for_stats");
+      BIGINT(), "sum_data_size_for_stats", mapInputField);
 
   const std::vector<std::string> aggregateNames = {
       "min",
@@ -1997,22 +1989,18 @@ TEST_P(AllTableWriterTest, columnStatsDataTypes) {
       makeAggregate(countArrayCallExpr),
       makeAggregate(sumDataSizeArrayCallExpr),
   };
-  const auto aggregationNode = std::make_shared<core::AggregationNode>(
-      core::PlanNodeId(),
-      core::AggregationNode::Step::kPartial,
+  const core::ColumnStatsSpec columnStatsSpec{
       groupingKeyFields,
-      std::vector<core::FieldAccessTypedExprPtr>{},
+      core::AggregationNode::Step::kPartial,
       aggregateNames,
-      aggregates,
-      false, // ignoreNullKeys
-      PlanBuilder().values({input}).planNode());
+      aggregates};
 
   auto plan = PlanBuilder()
                   .values({input})
                   .addNode(addTableWriter(
                       rowType_,
                       rowType_->names(),
-                      aggregationNode,
+                      columnStatsSpec,
                       std::make_shared<core::InsertTableHandle>(
                           kHiveConnectorId,
                           makeHiveInsertTableHandle(
@@ -2088,18 +2076,15 @@ TEST_P(AllTableWriterTest, columnStats) {
   output.emplace_back("min");
   types.emplace_back(BIGINT());
   const auto writerOutputType = ROW(std::move(output), std::move(types));
-  auto aggregationNode = generateAggregationNode(
-      "c0",
-      groupingKeys,
-      core::AggregationNode::Step::kPartial,
-      PlanBuilder().values({input}).planNode());
+  auto columnStatsSpec = generateColumnStatsSpec(
+      "c0", groupingKeys, core::AggregationNode::Step::kPartial);
 
   auto plan = PlanBuilder()
                   .values({input})
                   .addNode(addTableWriter(
                       rowType_,
                       rowType_->names(),
-                      aggregationNode,
+                      columnStatsSpec,
                       std::make_shared<core::InsertTableHandle>(
                           kHiveConnectorId,
                           makeHiveInsertTableHandle(
@@ -2187,16 +2172,13 @@ TEST_P(AllTableWriterTest, columnStatsWithTableWriteMerge) {
   const auto writerOutputType = ROW(std::move(output), std::move(types));
 
   // aggregation node
-  auto aggregationNode = generateAggregationNode(
-      "c0",
-      groupingKeys,
-      core::AggregationNode::Step::kPartial,
-      PlanBuilder().values({input}).planNode());
+  auto columnStatsSpec = generateColumnStatsSpec(
+      "c0", groupingKeys, core::AggregationNode::Step::kPartial);
 
   auto tableWriterPlan = PlanBuilder().values({input}).addNode(addTableWriter(
       rowType_,
       rowType_->names(),
-      aggregationNode,
+      columnStatsSpec,
       std::make_shared<core::InsertTableHandle>(
           kHiveConnectorId,
           makeHiveInsertTableHandle(
@@ -2208,15 +2190,9 @@ TEST_P(AllTableWriterTest, columnStatsWithTableWriteMerge) {
       false,
       commitStrategy_));
 
-  auto mergeAggregationNode = generateAggregationNode(
-      "min",
-      groupingKeys,
-      core::AggregationNode::Step::kIntermediate,
-      std::move(tableWriterPlan.planNode()));
-
   auto finalPlan = tableWriterPlan.capturePlanNodeId(tableWriteNodeId_)
                        .localPartition(std::vector<std::string>{})
-                       .tableWriteMerge(std::move(mergeAggregationNode))
+                       .tableWriteMerge()
                        .planNode();
   auto result = AssertQueryBuilder(finalPlan).copyResults(pool());
   auto rowVector = result->childAt(0)->asFlatVector<int64_t>();
