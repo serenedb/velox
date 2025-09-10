@@ -30,7 +30,7 @@ QueryConfig::QueryConfig(std::unordered_map<std::string, std::string>&& values)
   validateConfig();
 }
 
-QueryConfig::QueryConfig(std::shared_ptr<const config::IConfig> config) : config_(std::move(config)) {
+QueryConfig::QueryConfig(std::shared_ptr<const config::IConfig> config) : config_{std::move(config)} {
   validateConfig();
 }
 
