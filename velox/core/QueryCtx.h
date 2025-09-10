@@ -45,7 +45,7 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
   /// being used.
   static std::shared_ptr<QueryCtx> create(
       folly::Executor* executor = nullptr,
-      QueryConfig&& queryConfig = QueryConfig{},
+      QueryConfig&& queryConfig = {},
       std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
           connectorConfigs = {},
       cache::AsyncDataCache* cache = cache::AsyncDataCache::getInstance(),
@@ -152,7 +152,7 @@ class QueryCtx : public std::enable_shared_from_this<QueryCtx> {
   /// being used.
   QueryCtx(
       folly::Executor* executor = nullptr,
-      QueryConfig&& queryConfig = QueryConfig{},
+      QueryConfig&& queryConfig = {},
       std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
           connectorConfigs = {},
       cache::AsyncDataCache* cache = cache::AsyncDataCache::getInstance(),

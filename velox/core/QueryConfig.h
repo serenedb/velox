@@ -29,7 +29,7 @@ class QueryConfig {
  public:
   QueryConfig();
 
-  explicit QueryConfig(std::unordered_map<std::string, std::string>&& values);
+  explicit QueryConfig(std::unordered_map<std::string, std::string> values);
 
   explicit QueryConfig(std::shared_ptr<const config::IConfig> config);
 
@@ -1258,6 +1258,7 @@ class QueryConfig {
   T get(const std::string& key, const U& defaultValue) const {
     return config_->get<T, U>(key, defaultValue);
   }
+
   template <typename T>
   std::optional<T> get(const std::string& key) const {
     return config_->get<T>(key);
@@ -1273,6 +1274,6 @@ class QueryConfig {
  private:
   void validateConfig();
 
-  std::shared_ptr<const velox::config::IConfig> config_;
+  std::shared_ptr<const config::IConfig> config_;
 };
 } // namespace facebook::velox::core

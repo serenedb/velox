@@ -77,8 +77,6 @@ class ConfigBase : public IConfig {
     const std::function<T(const std::string&, const std::string&)> toT;
   };
 
-  ConfigBase(bool _mutable = false) : mutable_{_mutable} {}
-
   ConfigBase(
       std::unordered_map<std::string, std::string>&& configs,
       bool _mutable = false)
