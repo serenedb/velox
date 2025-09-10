@@ -22,7 +22,7 @@
 
 namespace facebook::velox::core {
 
-QueryConfig::QueryConfig() : QueryConfig(std::unordered_map<std::string, std::string>{}) {
+QueryConfig::QueryConfig() : QueryConfig{std::unordered_map<std::string, std::string>{}} {
 }
 
 QueryConfig::QueryConfig(std::unordered_map<std::string, std::string> values)
@@ -38,12 +38,12 @@ void QueryConfig::validateConfig() {
   if (auto tz = config_->get<std::string>(QueryConfig::kSessionTimezone)) {
     VELOX_USER_CHECK(
         tz::getTimeZoneID(
-            tz.value(),
+            *tz,
             false) != -1,
         fmt::format(
             "session '{}' set with invalid value '{}'",
             QueryConfig::kSessionTimezone,
-            tz.value()));
+            *tz));
   }
 }
 

@@ -1264,6 +1264,10 @@ class QueryConfig {
     return config_->get<T>(key);
   }
 
+  const std::shared_ptr<const config::IConfig>& getImpl() const {
+    return config_;
+  }
+
   /// Test-only method to override the current query config properties.
   /// It is not thread safe.
   void testingOverrideConfigUnsafe(

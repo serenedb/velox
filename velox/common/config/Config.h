@@ -80,7 +80,7 @@ class ConfigBase : public IConfig {
   ConfigBase(
       std::unordered_map<std::string, std::string>&& configs,
       bool _mutable = false)
-      : configs_{std::move(configs)}, mutable_{_mutable} {}
+      : configs_(std::move(configs)), mutable_(_mutable) {}
 
   virtual ~ConfigBase() {}
 
