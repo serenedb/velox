@@ -23,6 +23,7 @@
 
 #include "folly/Conv.h"
 #include "velox/common/base/Exceptions.h"
+#include "velox/common/config/IConfig.h"
 
 namespace facebook::velox::config {
 
@@ -47,7 +48,7 @@ std::chrono::duration<double> toDuration(const std::string& str);
 
 /// The concrete config class should inherit the config base and define all the
 /// entries.
-class ConfigBase {
+class ConfigBase : public IConfig {
  public:
   template <typename T>
   struct Entry {
@@ -111,6 +112,8 @@ class ConfigBase {
                                   : entry.defaultVal;
   }
 
+  std::optional<std::string> get(const std::string& key) const final;
+
   template <typename T>
   std::optional<T> get(
       const std::string& key,
@@ -145,15 +148,13 @@ class ConfigBase {
   bool valueExists(const std::string& key) const;
 
   const std::unordered_map<std::string, std::string>& rawConfigs() const;
-
-  std::unordered_map<std::string, std::string> rawConfigsCopy() const;
+  std::unordered_map<std::string, std::string> rawConfigsCopy() const override;
 
  protected:
   mutable std::shared_mutex mutex_;
   std::unordered_map<std::string, std::string> configs_;
 
  private:
-  std::optional<std::string> get(const std::string& key) const;
 
   const bool mutable_;
 };

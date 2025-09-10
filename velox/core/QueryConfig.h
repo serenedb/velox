@@ -27,10 +27,15 @@ namespace facebook::velox::core {
 /// Does not allow altering properties on the fly. Only at creation time.
 class QueryConfig {
  public:
+  QueryConfig();
+
   explicit QueryConfig(
       const std::unordered_map<std::string, std::string>& values);
 
   explicit QueryConfig(std::unordered_map<std::string, std::string>&& values);
+
+  explicit QueryConfig(const std::shared_ptr<config::IConfig>& config);
+
 
   /// Maximum memory that a query can use on a single host.
   static constexpr const char* kQueryMaxMemoryPerNode =
@@ -1255,11 +1260,27 @@ class QueryConfig {
 
   template <typename T>
   T get(const std::string& key, const T& defaultValue) const {
-    return config_->get<T>(key, defaultValue);
+    auto value = config_->get(key);
+    if (!value.has_value()) {
+      return defaultValue;
+    }
+    return folly::to<T>(*value);
   }
   template <typename T>
   std::optional<T> get(const std::string& key) const {
-    return std::optional<T>(config_->get<T>(key));
+    auto value = config_->get(key);
+    if (!value.has_value()) {
+      return std::nullopt;
+    }
+    return folly::to<T>(*value);
+  }
+
+  std::string getRaw(const std::string& key, const std::string_view defaultValue) const {
+    auto value = config_->get(key);
+    if (!value.has_value()) {
+      return std::string{defaultValue};
+    }
+    return *value;
   }
 
   /// Test-only method to override the current query config properties.
@@ -1272,6 +1293,6 @@ class QueryConfig {
  private:
   void validateConfig();
 
-  std::unique_ptr<velox::config::ConfigBase> config_;
+  std::shared_ptr<const velox::config::IConfig> config_;
 };
 } // namespace facebook::velox::core

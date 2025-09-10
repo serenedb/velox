@@ -112,6 +112,15 @@ ConfigBase& ConfigBase::set(const std::string& key, const std::string& val) {
   return *this;
 }
 
+std::optional<std::string> ConfigBase::get(const std::string& key) const {
+  std::shared_lock<std::shared_mutex> l(mutex_);
+  auto it = configs_.find(key);
+  if (it == configs_.end()) {
+    return std::nullopt;
+  }
+  return it->second;
+}
+
 ConfigBase& ConfigBase::reset() {
   VELOX_CHECK(mutable_, "Cannot reset in immutable config");
   std::unique_lock<std::shared_mutex> l(mutex_);
@@ -138,13 +147,4 @@ std::unordered_map<std::string, std::string> ConfigBase::rawConfigsCopy()
   return configs_;
 }
 
-std::optional<std::string> ConfigBase::get(const std::string& key) const {
-  std::optional<std::string> val;
-  std::shared_lock<std::shared_mutex> l(mutex_);
-  auto it = configs_.find(key);
-  if (it != configs_.end()) {
-    val = it->second;
-  }
-  return val;
-}
 } // namespace facebook::velox::config
