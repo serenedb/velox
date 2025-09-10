@@ -11,11 +11,8 @@ namespace facebook::velox::config {
 class IConfig {
 public:
   IConfig() = default;
-  virtual std::optional<std::any> Get(const std::string& key) const = 0;
-  virtual bool Has(const std::string& key) const = 0;
-  virtual std::unordered_map<std::string, std::string> rawConfigsCopy() const {
-    return {};
-  }
+  virtual std::optional<std::string> get(const std::string& key) const = 0;
+  virtual std::unordered_map<std::string, std::string> rawConfigsCopy() const = 0;
   virtual ~IConfig() = default;
 };
 

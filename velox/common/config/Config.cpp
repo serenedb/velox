@@ -112,7 +112,7 @@ ConfigBase& ConfigBase::set(const std::string& key, const std::string& val) {
   return *this;
 }
 
-std::optional<std::any> ConfigBase::Get(const std::string& key) const {
+std::optional<std::string> ConfigBase::get(const std::string& key) const {
   std::shared_lock<std::shared_mutex> l(mutex_);
   auto it = configs_.find(key);
   if (it == configs_.end()) {
@@ -133,11 +133,6 @@ bool ConfigBase::valueExists(const std::string& key) const {
   return configs_.find(key) != configs_.end();
 };
 
-bool ConfigBase::Has(const std::string& key) const {
-  std::shared_lock<std::shared_mutex> l(mutex_);
-  return configs_.count(key);
-}
-
 const std::unordered_map<std::string, std::string>& ConfigBase::rawConfigs()
     const {
   VELOX_CHECK(
@@ -152,13 +147,4 @@ std::unordered_map<std::string, std::string> ConfigBase::rawConfigsCopy()
   return configs_;
 }
 
-std::optional<std::string> ConfigBase::getValue(const std::string& key) const {
-  std::optional<std::string> val;
-  std::shared_lock<std::shared_mutex> l(mutex_);
-  auto it = configs_.find(key);
-  if (it != configs_.end()) {
-    val = it->second;
-  }
-  return val;
-}
 } // namespace facebook::velox::config

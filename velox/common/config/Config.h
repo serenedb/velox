@@ -112,7 +112,7 @@ class ConfigBase : public IConfig {
                                   : entry.defaultVal;
   }
 
-  std::optional<std::any> Get(const std::string& key) const override;
+  std::optional<std::string> get(const std::string& key) const final;
 
   template <typename T>
   std::optional<T> get(
@@ -121,7 +121,7 @@ class ConfigBase : public IConfig {
                                                           auto value) {
         return folly::to<T>(value);
       }) const {
-    auto val = getValue(key);
+    auto val = get(key);
     if (val.has_value()) {
       return toT(key, val.value());
     } else {
@@ -137,7 +137,7 @@ class ConfigBase : public IConfig {
                                                           auto value) {
         return folly::to<T>(value);
       }) const {
-    auto val = getValue(key);
+    auto val = get(key);
     if (val.has_value()) {
       return toT(key, val.value());
     } else {
@@ -147,8 +147,6 @@ class ConfigBase : public IConfig {
 
   bool valueExists(const std::string& key) const;
 
-  bool Has(const std::string& key) const override;
-
   const std::unordered_map<std::string, std::string>& rawConfigs() const;
   std::unordered_map<std::string, std::string> rawConfigsCopy() const override;
 
@@ -157,7 +155,6 @@ class ConfigBase : public IConfig {
   std::unordered_map<std::string, std::string> configs_;
 
  private:
-  std::optional<std::string> getValue(const std::string& key) const;
 
   const bool mutable_;
 };

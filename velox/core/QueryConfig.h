@@ -28,6 +28,7 @@ namespace facebook::velox::core {
 class QueryConfig {
  public:
   QueryConfig();
+
   explicit QueryConfig(
       const std::unordered_map<std::string, std::string>& values);
 
@@ -1259,27 +1260,27 @@ class QueryConfig {
 
   template <typename T>
   T get(const std::string& key, const T& defaultValue) const {
-    auto value = config_->Get(key);
+    auto value = config_->get(key);
     if (!value.has_value()) {
       return defaultValue;
     }
-    return std::any_cast<T>(value.value());
+    return folly::to<T>(*value);
   }
   template <typename T>
   std::optional<T> get(const std::string& key) const {
-    auto value = config_->Get(key);
+    auto value = config_->get(key);
     if (!value.has_value()) {
       return std::nullopt;
     }
-    return std::any_cast<T>(value.value());
+    return folly::to<T>(*value);
   }
 
-  std::any get(const std::string& key, const std::any& defaultValue) const {
-    auto value = config_->Get(key);
+  std::string getRaw(const std::string& key, const std::string_view defaultValue) const {
+    auto value = config_->get(key);
     if (!value.has_value()) {
-      return defaultValue;
+      return std::string{defaultValue};
     }
-    return value.value();
+    return *value;
   }
 
   /// Test-only method to override the current query config properties.
@@ -1292,6 +1293,6 @@ class QueryConfig {
  private:
   void validateConfig();
 
-  std::shared_ptr<velox::config::IConfig> config_;
+  std::shared_ptr<const velox::config::IConfig> config_;
 };
 } // namespace facebook::velox::core
