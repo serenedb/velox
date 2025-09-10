@@ -250,7 +250,7 @@ class ExecCtx {
 
   struct OptimizationParams {
     explicit OptimizationParams(QueryCtx* queryCtx) {
-      const core::QueryConfig defaultQueryConfig = core::QueryConfig();
+      const core::QueryConfig defaultQueryConfig;
 
       const core::QueryConfig& queryConfig =
           queryCtx ? queryCtx->queryConfig() : defaultQueryConfig;

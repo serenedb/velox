@@ -77,6 +77,8 @@ class ConfigBase : public IConfig {
     const std::function<T(const std::string&, const std::string&)> toT;
   };
 
+  ConfigBase(bool _mutable = false) : mutable_(_mutable) {}
+
   ConfigBase(
       std::unordered_map<std::string, std::string>&& configs,
       bool _mutable = false)
@@ -112,49 +114,17 @@ class ConfigBase : public IConfig {
                                   : entry.defaultVal;
   }
 
-  std::optional<std::string> get(const std::string& key) const final;
-
-  template <typename T>
-  std::optional<T> get(
-      const std::string& key,
-      std::function<T(std::string, std::string)> toT = [](auto /* unused */,
-                                                          auto value) {
-        return folly::to<T>(value);
-      }) const {
-    auto val = get(key);
-    if (val.has_value()) {
-      return toT(key, val.value());
-    } else {
-      return std::nullopt;
-    }
-  }
-
-  template <typename T>
-  T get(
-      const std::string& key,
-      const T& defaultValue,
-      std::function<T(std::string, std::string)> toT = [](auto /* unused */,
-                                                          auto value) {
-        return folly::to<T>(value);
-      }) const {
-    auto val = get(key);
-    if (val.has_value()) {
-      return toT(key, val.value());
-    } else {
-      return defaultValue;
-    }
-  }
-
   bool valueExists(const std::string& key) const;
 
   const std::unordered_map<std::string, std::string>& rawConfigs() const;
-  std::unordered_map<std::string, std::string> rawConfigsCopy() const override;
+  std::unordered_map<std::string, std::string> rawConfigsCopy() const final;
 
  protected:
   mutable std::shared_mutex mutex_;
   std::unordered_map<std::string, std::string> configs_;
 
  private:
+  std::optional<std::string> get(const std::string& key) const final;
 
   const bool mutable_;
 };

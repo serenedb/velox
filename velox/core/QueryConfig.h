@@ -29,13 +29,9 @@ class QueryConfig {
  public:
   QueryConfig();
 
-  explicit QueryConfig(
-      const std::unordered_map<std::string, std::string>& values);
-
   explicit QueryConfig(std::unordered_map<std::string, std::string>&& values);
 
-  explicit QueryConfig(const std::shared_ptr<config::IConfig>& config);
-
+  explicit QueryConfig(std::shared_ptr<const config::IConfig> config);
 
   /// Maximum memory that a query can use on a single host.
   static constexpr const char* kQueryMaxMemoryPerNode =
@@ -1258,29 +1254,13 @@ class QueryConfig {
     return get<std::string>(kClientTags, "");
   }
 
-  template <typename T>
-  T get(const std::string& key, const T& defaultValue) const {
-    auto value = config_->get(key);
-    if (!value.has_value()) {
-      return defaultValue;
-    }
-    return folly::to<T>(*value);
+  template <typename T, typename U>
+  T get(const std::string& key, const U& defaultValue) const {
+    return config_->get<T, U>(key, defaultValue);
   }
   template <typename T>
   std::optional<T> get(const std::string& key) const {
-    auto value = config_->get(key);
-    if (!value.has_value()) {
-      return std::nullopt;
-    }
-    return folly::to<T>(*value);
-  }
-
-  std::string getRaw(const std::string& key, const std::string_view defaultValue) const {
-    auto value = config_->get(key);
-    if (!value.has_value()) {
-      return std::string{defaultValue};
-    }
-    return *value;
+    return config_->get<T>(key);
   }
 
   /// Test-only method to override the current query config properties.

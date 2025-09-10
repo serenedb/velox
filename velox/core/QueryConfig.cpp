@@ -22,13 +22,7 @@
 
 namespace facebook::velox::core {
 
-QueryConfig::QueryConfig() : config_{std::make_shared<config::ConfigBase>(std::unordered_map<std::string, std::string>{})} {
-}
-
-QueryConfig::QueryConfig(
-    const std::unordered_map<std::string, std::string>& values)
-    : config_{std::make_shared<config::ConfigBase>(values)} {
-  validateConfig();
+QueryConfig::QueryConfig() : config_{std::make_shared<config::ConfigBase>()} {
 }
 
 QueryConfig::QueryConfig(std::unordered_map<std::string, std::string>&& values)
@@ -36,20 +30,23 @@ QueryConfig::QueryConfig(std::unordered_map<std::string, std::string>&& values)
   validateConfig();
 }
 
-QueryConfig::QueryConfig(const std::shared_ptr<config::IConfig>& config) : config_(config) {}
+QueryConfig::QueryConfig(std::shared_ptr<const config::IConfig> config) : config_(std::move(config)) {
+  validateConfig();
+}
 
 void QueryConfig::validateConfig() {
   // Validate if timezone name can be recognized.
-  auto tz = config_->get(QueryConfig::kSessionTimezone);
+  auto tz = config_->get<std::string>(QueryConfig::kSessionTimezone);
   if (tz) {
     VELOX_USER_CHECK(
         tz::getTimeZoneID(
-            std::any_cast<std::string>(tz.value()),
+            tz.value(),
             false) != -1,
         fmt::format(
             "session '{}' set with invalid value '{}'",
             QueryConfig::kSessionTimezone,
-            std::any_cast<std::string>(tz.value())));
+            tz.value())
+    );
   }
 }
 
