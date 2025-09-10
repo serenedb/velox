@@ -117,6 +117,7 @@ class ConfigBase : public IConfig {
   bool valueExists(const std::string& key) const;
 
   const std::unordered_map<std::string, std::string>& rawConfigs() const;
+
   std::unordered_map<std::string, std::string> rawConfigsCopy() const final;
 
  protected:
