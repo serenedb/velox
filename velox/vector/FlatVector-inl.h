@@ -43,7 +43,7 @@ Range<T> FlatVector<T>::asRange() const {
 
 template <typename T>
 std::unique_ptr<SimpleVector<uint64_t>> FlatVector<T>::hashAll() const {
-  using len_type = decltype(BaseVector::length_);
+  using len_type = vector_size_t;
   BufferPtr hashBuffer =
       AlignedBuffer::allocate<uint64_t>(BaseVector::length_, BaseVector::pool_);
   auto hashData = hashBuffer->asMutable<uint64_t>();
