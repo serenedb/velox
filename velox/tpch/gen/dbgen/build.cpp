@@ -225,9 +225,9 @@ long mk_order(DSS_HUGE index, order_t* o, DBGenContext* ctx, long upd_num) {
     o->l[lcnt].eprice = rprice * o->l[lcnt].quantity;
 
     o->totalprice +=
-        (o->l[lcnt].eprice * (static_cast<long>(100) - o->l[lcnt].discount)) /
-        static_cast<long>(PENNIES) * (static_cast<long>(100) + o->l[lcnt].tax) /
-        static_cast<long>(PENNIES);
+        ((o->l[lcnt].eprice * (static_cast<long>(100) - o->l[lcnt].discount)) /
+         static_cast<long>(PENNIES)) *
+        (static_cast<long>(100) + o->l[lcnt].tax) / static_cast<long>(PENNIES);
 
     RANDOM(s_date, L_SDTE_MIN, L_SDTE_MAX, &ctx->Seed[L_SDTE_SD]);
     s_date += tmp_date;
