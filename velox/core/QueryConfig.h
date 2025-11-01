@@ -33,9 +33,7 @@ class QueryConfig {
   // QueryConfig{{}} or QueryConfig({}).
   struct ConfigTag {};
 
-  explicit QueryConfig(
-      ConfigTag /*tag*/,
-      std::shared_ptr<const config::IConfig> config);
+  explicit QueryConfig(ConfigTag /*tag*/, config::ConfigPtr config);
 
   /// Maximum memory that a query can use on a single host.
   static constexpr const char* kQueryMaxMemoryPerNode =
@@ -1323,7 +1321,7 @@ class QueryConfig {
     return config_->get<T>(key);
   }
 
-  const std::shared_ptr<const config::IConfig>& config() const {
+  const config::ConfigPtr& config() const {
     return config_;
   }
 
@@ -1337,6 +1335,6 @@ class QueryConfig {
  private:
   void validateConfig();
 
-  std::shared_ptr<const config::IConfig> config_;
+  config::ConfigPtr config_;
 };
 } // namespace facebook::velox::core
