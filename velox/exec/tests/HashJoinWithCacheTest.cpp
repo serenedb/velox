@@ -108,7 +108,7 @@ TEST_F(HashJoinWithCacheTest, sequential) {
   auto queryCtx = core::QueryCtx::create(
       driverExecutor_.get(),
       core::QueryConfig({}),
-      std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>{},
+      core::ConnectorConfigs{},
       cache::AsyncDataCache::getInstance(),
       nullptr,
       nullptr,
@@ -238,7 +238,7 @@ TEST_F(HashJoinWithCacheTest, concurrent) {
   auto queryCtx = core::QueryCtx::create(
       driverExecutor_.get(),
       core::QueryConfig({}),
-      std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>{},
+      core::ConnectorConfigs{},
       cache::AsyncDataCache::getInstance(),
       nullptr,
       nullptr,
@@ -384,7 +384,7 @@ DEBUG_ONLY_TEST_F(HashJoinWithCacheTest, probeCannotSpillWithCachedTable) {
   auto queryCtx = core::QueryCtx::create(
       driverExecutor_.get(),
       core::QueryConfig({}),
-      std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>{},
+      core::ConnectorConfigs{},
       cache::AsyncDataCache::getInstance(),
       nullptr,
       nullptr,
@@ -511,7 +511,7 @@ DEBUG_ONLY_TEST_F(HashJoinWithCacheTest, probeOOMWithCachedTable) {
   auto queryCtx = core::QueryCtx::create(
       driverExecutor_.get(),
       core::QueryConfig({}),
-      std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>{},
+      core::ConnectorConfigs{},
       cache::AsyncDataCache::getInstance(),
       nullptr,
       nullptr,
