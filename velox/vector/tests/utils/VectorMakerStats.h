@@ -66,7 +66,7 @@ template <typename T>
 class VectorMakerStats {
  public:
   void addElement(const T& val) {
-    distinctSet_.insert(val);
+    distinctSet_.insert(static_cast<decltype(distinctSet_)::value_type>(val));
   }
 
   size_t distinctCount() const {
@@ -83,7 +83,12 @@ class VectorMakerStats {
   bool isSorted{false};
 
  private:
-  std::unordered_set<T> distinctSet_;
+  // StringViews in test data not necessary properly aligned. But hashBytes for StringView expects 8 aligned data buffers (otherwise UB sanitizer is
+  // triggered). This is true if SringView is allocated from velox MemoryPool so inside velox this is a valid expectation.
+  // But tests use STL vectors so alignment might be invalid. Switch to just string_view std hasher here for simplifying tests.
+  std::unordered_set<
+      std::conditional_t<std::is_same_v<T, StringView>, std::string_view, T>>
+      distinctSet_;
 };
 
 template <>
