@@ -262,7 +262,7 @@ int32_t addToDate(int32_t input, DateTimeUnit unit, int32_t value) {
 }
 
 FOLLY_ALWAYS_INLINE Timestamp
-addToTimestamp(const Timestamp& timestamp, DateTimeUnit unit, int32_t value) {
+addToTimestamp(const Timestamp& timestamp, DateTimeUnit unit, int64_t value) {
   // TODO: Handle overflow and underflow with 64-bit representation.
   if (value == 0) {
     return timestamp;
@@ -337,7 +337,7 @@ addToTimestamp(const Timestamp& timestamp, DateTimeUnit unit, int32_t value) {
 
 FOLLY_ALWAYS_INLINE Timestamp addToTimestamp(
     DateTimeUnit unit,
-    int32_t value,
+    int64_t value,
     const Timestamp& timestamp,
     const tz::TimeZone* timeZone) {
   Timestamp result;
