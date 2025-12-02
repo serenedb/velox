@@ -14,54 +14,55 @@
  * limitations under the License.
  */
 #include "velox/type/TypeCoercer.h"
+#include "velox/type/Cost.h"
 
 namespace facebook::velox {
 
-int64_t Coercion::overallCost(const std::vector<Coercion>& coercions) {
-  int64_t cost = 0;
+CallableCost Coercion::overallCost(const std::vector<Coercion>& coercions) {
+  CallableCost cost = 0;
   for (const auto& coercion : coercions) {
-    if (coercion.type != nullptr) {
-      cost += coercion.cost;
-    }
+    VELOX_DCHECK(coercion);
+    cost += coercion.cost;
   }
-
   return cost;
+}
+
+void Coercion::convert(
+    const std::vector<Coercion>& from,
+    std::vector<TypePtr>* to) {
+  if (!to) {
+    return;
+  }
+  to->clear();
+  to->reserve(from.size());
+  for (const auto& coercion : from) {
+    VELOX_DCHECK(coercion);
+    to->push_back(coercion.type);
+  }
 }
 
 namespace {
 
-std::unordered_map<std::pair<std::string, std::string>, Coercion>
-allowedCoercions() {
-  std::unordered_map<std::pair<std::string, std::string>, Coercion> coercions;
+facebook::velox::AllowedCoercions kAllowedCoercions;
 
-  auto add = [&](const TypePtr& from, const std::vector<TypePtr>& to) {
-    int32_t cost = 0;
-    for (const auto& toType : to) {
-      coercions.emplace(
-          std::make_pair<std::string, std::string>(
-              from->kindName(), toType->kindName()),
-          Coercion{.type = toType, .cost = ++cost});
-    }
-  };
+// This is cost of CAST from UNKNOWN type to any other type.
+// This is the lowest for any implicit CAST.
+// Any other implicit CAST will have cost higher than this.
+constexpr CallableCost kNullCoercionCost = 1;
 
-  add(TINYINT(),
-      {SMALLINT(), INTEGER(), BIGINT(), HUGEINT(), REAL(), DOUBLE()});
-  add(SMALLINT(), {INTEGER(), BIGINT(), HUGEINT(), REAL(), DOUBLE()});
-  add(INTEGER(), {BIGINT(), HUGEINT(), DOUBLE()});
-  add(BIGINT(), {HUGEINT()});
-  add(REAL(), {DOUBLE()});
-
-  return coercions;
-}
 } // namespace
 
 // static
-std::optional<Coercion> TypeCoercer::coerceTypeBase(
+Coercion TypeCoercer::coerceTypeBase(
     const TypePtr& fromType,
     const std::string& toTypeName) {
-  static const auto kAllowedCoercions = allowedCoercions();
   if (fromType->name() == toTypeName) {
-    return Coercion{.type = fromType, .cost = 0};
+    return {{}, 0};
+  }
+
+  if (fromType == UNKNOWN()) {
+    // Cast unknown to complex type in function is not supported yet
+    return {getType(toTypeName, {}), kNullCoercionCost};
   }
 
   auto it = kAllowedCoercions.find({fromType->name(), toTypeName});
@@ -69,35 +70,48 @@ std::optional<Coercion> TypeCoercer::coerceTypeBase(
     return it->second;
   }
 
-  return std::nullopt;
+  return {{}, kImpossibleCoercionCost};
 }
 
 // static
-bool TypeCoercer::coercible(const TypePtr& fromType, const TypePtr& toType) {
-  if (fromType->isUnKnown()) {
-    return true;
+Coercion TypeCoercer::coercible(
+    const TypePtr& fromType,
+    const TypePtr& toType) {
+  if (fromType->equivalent(*toType)) {
+    return {{}, 0};
+  }
+
+  if (fromType == UNKNOWN()) {
+    return {toType, kNullCoercionCost};
+  }
+
+  if (fromType->size() != toType->size()) {
+    return {{}, kImpossibleCoercionCost};
   }
 
   if (fromType->size() == 0) {
-    if (auto coercion = TypeCoercer::coerceTypeBase(fromType, toType->name())) {
-      return true;
-    }
-
-    return false;
+    return TypeCoercer::coerceTypeBase(fromType, toType->name());
   }
 
-  if (fromType->name() != toType->name() ||
-      fromType->size() != toType->size()) {
-    return false;
+  if (fromType->name() != toType->name()) {
+    return {{}, kImpossibleCoercionCost};
   }
 
-  for (auto i = 0; i < fromType->size(); i++) {
-    if (!coercible(fromType->childAt(i), toType->childAt(i))) {
-      return false;
+  CallableCost cost = 0;
+  for (size_t i = 0; i < fromType->size(); i++) {
+    if (auto c = coercible(fromType->childAt(i), toType->childAt(i))) {
+      cost += c.cost;
+    } else {
+      return {{}, kImpossibleCoercionCost};
     }
   }
 
-  return true;
+  return {toType, cost};
+}
+
+// static
+void TypeCoercer::registerCoercions(AllowedCoercions coercions) {
+  kAllowedCoercions = std::move(coercions);
 }
 
 } // namespace facebook::velox

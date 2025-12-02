@@ -34,7 +34,7 @@ TypePtr resolveTypeInt(
 TypePtr resolveTypeInt(const std::vector<TypePtr>& argTypes) {
   std::vector<TypePtr> coercions;
   return resolveTypeInt(argTypes, false, coercions);
-};
+}
 } // namespace
 
 SwitchExpr::SwitchExpr(
