@@ -35,7 +35,7 @@ class FunctionCallToSpecialForm {
   /// from special form to special form. By default, no coersions are attempted.
   virtual TypePtr resolveTypeWithCorsions(
       const std::vector<TypePtr>& argTypes,
-      [[maybe_unused]] std::vector<TypePtr>& coercions) {
+      std::vector<TypePtr>& coercions) {
     coercions.clear();
     coercions.resize(argTypes.size());
     return resolveType(argTypes);

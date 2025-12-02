@@ -30,36 +30,14 @@ int64_t Coercion::overallCost(const std::vector<Coercion>& coercions) {
 
 namespace {
 
-std::unordered_map<std::pair<std::string, std::string>, Coercion>
-allowedCoercions() {
-  std::unordered_map<std::pair<std::string, std::string>, Coercion> coercions;
+facebook::velox::AllowedCoercions kAllowedCoercions;
 
-  auto add = [&](const TypePtr& from, const std::vector<TypePtr>& to) {
-    int32_t cost = 0;
-    for (const auto& toType : to) {
-      coercions.emplace(
-          std::make_pair<std::string, std::string>(
-              from->kindName(), toType->kindName()),
-          Coercion{.type = toType, .cost = ++cost});
-    }
-  };
-
-  add(TINYINT(),
-      {SMALLINT(), INTEGER(), BIGINT(), HUGEINT(), REAL(), DOUBLE()});
-  add(SMALLINT(), {INTEGER(), BIGINT(), HUGEINT(), REAL(), DOUBLE()});
-  add(INTEGER(), {BIGINT(), HUGEINT(), DOUBLE()});
-  add(BIGINT(), {HUGEINT()});
-  add(REAL(), {DOUBLE()});
-
-  return coercions;
-}
 } // namespace
 
 // static
 std::optional<Coercion> TypeCoercer::coerceTypeBase(
     const TypePtr& fromType,
     const std::string& toTypeName) {
-  static const auto kAllowedCoercions = allowedCoercions();
   if (fromType->name() == toTypeName) {
     return Coercion{.type = fromType, .cost = 0};
   }
@@ -98,6 +76,11 @@ bool TypeCoercer::coercible(const TypePtr& fromType, const TypePtr& toType) {
   }
 
   return true;
+}
+
+// static
+void TypeCoercer::registerCoercions(AllowedCoercions coercions) {
+  kAllowedCoercions = std::move(coercions);
 }
 
 } // namespace facebook::velox
