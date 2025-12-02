@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include "velox/type/TypeCoercer.h"
+#include <iostream>
 
 namespace facebook::velox {
 
@@ -39,7 +40,7 @@ allowedCoercions() {
     for (const auto& toType : to) {
       coercions.emplace(
           std::make_pair<std::string, std::string>(
-              from->kindName(), toType->kindName()),
+              from->toString(), toType->toString()),
           Coercion{.type = toType, .cost = ++cost});
     }
   };
@@ -48,8 +49,9 @@ allowedCoercions() {
       {SMALLINT(), INTEGER(), BIGINT(), HUGEINT(), REAL(), DOUBLE()});
   add(SMALLINT(), {INTEGER(), BIGINT(), HUGEINT(), REAL(), DOUBLE()});
   add(INTEGER(), {BIGINT(), HUGEINT(), DOUBLE()});
-  add(BIGINT(), {HUGEINT()});
+  add(BIGINT(), {HUGEINT(), DOUBLE()});
   add(REAL(), {DOUBLE()});
+  add(DATE(), {TIMESTAMP()});
 
   return coercions;
 }
@@ -64,6 +66,7 @@ std::optional<Coercion> TypeCoercer::coerceTypeBase(
     return Coercion{.type = fromType, .cost = 0};
   }
 
+  std::cerr << fromType->name() << " -> " << toTypeName << std::endl;
   auto it = kAllowedCoercions.find({fromType->name(), toTypeName});
   if (it != kAllowedCoercions.end()) {
     return it->second;
