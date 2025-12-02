@@ -71,6 +71,8 @@ struct Coercion {
   }
 };
 
+using AllowedCoercions = std::unordered_map<std::pair<std::string, std::string>, Coercion>;
+
 class TypeCoercer {
  public:
   /// Checks if the base of 'fromType' can be implicitly converted to a type
@@ -80,6 +82,11 @@ class TypeCoercer {
   static std::optional<Coercion> coerceTypeBase(
       const TypePtr& fromType,
       const std::string& toTypeName);
+
+  /// Replaces the entire coercions map with a new one.
+  ///
+  /// @param coercions Map of coercions to set.
+  static void registerCoercions(AllowedCoercions coercions);
 };
 
 } // namespace facebook::velox
