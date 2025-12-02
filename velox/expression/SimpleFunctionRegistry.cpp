@@ -15,7 +15,6 @@
  */
 
 #include "velox/expression/SimpleFunctionRegistry.h"
-#include <iostream>
 
 namespace facebook::velox::exec {
 namespace {
@@ -180,9 +179,6 @@ SimpleFunctionRegistry::resolveFunction(
   std::optional<Candidate> selectedCandidate;
   registeredFunctions_.withRLock([&](const auto& map) {
     if (const auto* signatureMap = getSignatureMap(name, map)) {
-      for (const auto& [candidateSignature, functionEntry] : *signatureMap) {
-        std::cerr << name << candidateSignature.toString() << std::endl;
-      }
       std::vector<std::pair<std::vector<Coercion>, Candidate>> candidates;
       std::optional<uint32_t> priority;
 
