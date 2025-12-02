@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 #include "velox/type/TypeCoercer.h"
-#include <iostream>
 
 namespace facebook::velox {
 
@@ -66,7 +65,6 @@ std::optional<Coercion> TypeCoercer::coerceTypeBase(
     return Coercion{.type = fromType, .cost = 0};
   }
 
-  std::cerr << fromType->name() << " -> " << toTypeName << std::endl;
   auto it = kAllowedCoercions.find({fromType->name(), toTypeName});
   if (it != kAllowedCoercions.end()) {
     return it->second;
