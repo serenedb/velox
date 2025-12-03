@@ -46,13 +46,13 @@ StackTrace::StackTrace(int32_t skipFrames) {
 
 StackTrace::StackTrace(const StackTrace& other) {
   btPtrs_ = other.btPtrs_;
-  if (folly::test_once(other.btVectorFlag_)) {
+  if (folly::old::test_once(other.btVectorFlag_)) {
     btVector_ = other.btVector_;
-    folly::call_once(btVectorFlag_, [] {}); // Set the flag.
+    folly::old::call_once(btVectorFlag_, [] {}); // Set the flag.
   }
-  if (folly::test_once(other.btFlag_)) {
+  if (folly::old::test_once(other.btFlag_)) {
     bt_ = other.bt_;
-    folly::call_once(btFlag_, [] {}); // Set the flag.
+    folly::old::call_once(btFlag_, [] {}); // Set the flag.
   }
 }
 
@@ -88,7 +88,7 @@ void StackTrace::create(int32_t skipFrames) {
 // reporting functions
 
 const std::vector<std::string>& StackTrace::toStrVector() const {
-  folly::call_once(btVectorFlag_, [&] {
+  folly::old::call_once(btVectorFlag_, [&] {
     size_t frame = 0;
     static folly::Indestructible<folly::fbstring> myname{
         folly::demangle(typeid(decltype(*this))) + "::"};
@@ -105,7 +105,7 @@ const std::vector<std::string>& StackTrace::toStrVector() const {
 }
 
 const std::string& StackTrace::toString() const {
-  folly::call_once(btFlag_, [&] {
+  folly::old::call_once(btFlag_, [&] {
     const auto& vec = toStrVector();
     size_t needed = 0;
     for (const auto& frame : vec) {
