@@ -990,10 +990,8 @@ struct Permute<T, A, 4> {
     return genericPermute(data, idx);
   }
 
-  static HalfBatch<T, A> apply(
-      HalfBatch<T, A> data,
-      HalfBatch<int32_t, A> idx,
-      const xsimd::common&) {
+  static HalfBatch<T, A>
+  apply(HalfBatch<T, A> data, HalfBatch<int32_t, A> idx, const xsimd::common&) {
     return genericPermute(data, idx);
   }
 
