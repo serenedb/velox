@@ -63,9 +63,9 @@ class StackTrace {
   void create(int32_t skipFrames);
 
   std::vector<void*> btPtrs_;
-  mutable folly::once_flag btVectorFlag_;
+  mutable folly::old::once_flag btVectorFlag_;
   mutable std::vector<std::string> btVector_;
-  mutable folly::once_flag btFlag_;
+  mutable folly::old::once_flag btFlag_;
   mutable std::string bt_;
 };
 
