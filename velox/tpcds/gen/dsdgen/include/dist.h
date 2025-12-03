@@ -27,6 +27,7 @@
 #pragma once
 #include <folly/Singleton.h>
 #include <folly/Synchronized.h>
+#include <folly/synchronization/CallOnce.h>
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
@@ -757,7 +758,7 @@ static void print_options(
     DSDGenContext& dsdGenContext);
 
 static folly::Synchronized<std::unordered_map<std::string, d_idx_t>> idx_;
-static std::once_flag initFlag_;
+static folly::once_flag initFlag_;
 
 // DSDGenContext to access global variables.
 struct DSDGenContext {
