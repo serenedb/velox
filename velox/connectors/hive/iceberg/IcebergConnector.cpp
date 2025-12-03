@@ -31,9 +31,9 @@ namespace {
 // Upstream engines such as Prestissimo and Gluten should register the same
 // functions with different prefixes to avoid conflicts.
 void registerIcebergInternalFunctions(const std::string& prefix) {
-  static std::once_flag registerFlag;
+  static folly::once_flag registerFlag;
 
-  std::call_once(registerFlag, [prefix]() {
+  folly::call_once(registerFlag, [prefix]() {
     functions::iceberg::registerFunctions(prefix);
   });
 }
