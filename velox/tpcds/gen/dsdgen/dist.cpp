@@ -417,7 +417,7 @@ int load_dists() {
  * TODO: None
  */
 const d_idx_t* find_dist(const char* name) {
-  std::call_once(initFlag_, []() { load_dists(); });
+  folly::call_once(initFlag_, []() { load_dists(); });
 
   std::string key(name);
   auto lockedMap = idx_.rlock();
