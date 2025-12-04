@@ -31,9 +31,6 @@ class StackTrace {
   /// Translate a frame pointer to file name and line number pair.
   static std::string translateFrame(void* framePtr, bool lineNumbers = true);
 
-  /// Demangle a function name.
-  static std::string demangle(const char* mangled);
-
   /// Constructor -- saves the current stack trace. By default, we skip the
   /// frames for StackTrace::StackTrace.  If you want those, you can pass '-2'
   /// to skipFrames.
@@ -45,22 +42,12 @@ class StackTrace {
   /// Generate an output of the written stack trace.
   const std::string& toString() const;
 
-  /// Generate a vector that for each position has the title of the frame.
-  const std::vector<std::string>& toStrVector() const;
-
-  /// Return the raw stack pointers.
-  const std::vector<void*>& getStack() const {
-    return btPtrs_;
-  }
-
-  /// Log stacktrace into a file under /tmp. If "out" is not null, also store
-  /// translated stack trace into the variable. Returns the name of the
-  /// generated file.
-  std::string log(const char* errorType, std::string* out = nullptr) const;
-
  private:
   // Record bt pointers.
   void create(int32_t skipFrames);
+
+  /// Generate a vector that for each position has the title of the frame.
+  const std::vector<std::string>& toStrVector() const;
 
   std::vector<void*> btPtrs_;
   mutable folly::old::once_flag btVectorFlag_;

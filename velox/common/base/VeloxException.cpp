@@ -190,7 +190,7 @@ std::shared_ptr<const VeloxException::State> VeloxException::State::make(
   auto state = std::make_shared<VeloxException::State>();
   if (isStackTraceEnabled(exceptionType)) {
     // new v.s. make_unique to avoid any extra frames from make_unique
-    state->stackTrace.reset(new process::StackTrace());
+    state->stackTrace.reset(new process::StackTrace(1));
   }
   f(*state);
   return state;
