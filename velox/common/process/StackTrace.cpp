@@ -16,27 +16,11 @@
 
 #include "velox/common/process/StackTrace.h"
 
-// Symbolizer requires folly to be compiled with libelf and libdwarf support
-// (also currently only works in Linux).
-#if __linux__ && FOLLY_HAVE_ELF && FOLLY_HAVE_DWARF
-#define VELOX_HAS_SYMBOLIZER 1
-#else
-#define VELOX_HAS_SYMBOLIZER 0
-#endif
-
-#include <algorithm>
-#include <fstream>
-
-#include <fmt/format.h>
-#include <folly/Indestructible.h>
-#include <folly/String.h>
-#include <folly/experimental/symbolizer/StackTrace.h>
-
 #include "velox/common/process/ProcessBase.h"
 
-#ifdef __linux__
-#include <folly/experimental/symbolizer/Symbolizer.h> // @manual
-#endif
+#include <absl/debugging/stacktrace.h>
+#include <absl/debugging/symbolize.h>
+#include <folly/Conv.h>
 
 namespace facebook::velox::process {
 
@@ -65,23 +49,19 @@ StackTrace& StackTrace::operator=(const StackTrace& other) {
 }
 
 void StackTrace::create(int32_t skipFrames) {
-  const int32_t kDefaultSkipFrameAdjust = 2; // ::create(), ::StackTrace()
-  const int32_t kMaxFrames = 75;
+  // ::create(), ::StackTrace()
+  static constexpr int32_t kDefaultSkipFrameAdjust = 2;
+  static constexpr int32_t kMaxFrames = 75;
 
   btPtrs_.clear();
-  uintptr_t btPtrs[kMaxFrames];
-  ssize_t framecount = folly::symbolizer::getStackTrace(btPtrs, kMaxFrames);
+  void* btPtrs[kMaxFrames];
+  auto framecount = absl::GetStackTrace(
+      btPtrs, kMaxFrames, skipFrames + kDefaultSkipFrameAdjust);
   if (framecount <= 0) {
     return;
   }
 
-  framecount = std::min(framecount, static_cast<ssize_t>(kMaxFrames));
-  skipFrames = std::max(skipFrames + kDefaultSkipFrameAdjust, 0);
-
-  btPtrs_.reserve(framecount - skipFrames);
-  for (int32_t i = skipFrames; i < framecount; i++) {
-    btPtrs_.push_back(reinterpret_cast<void*>(btPtrs[i]));
-  }
+  btPtrs_.assign(btPtrs, btPtrs + framecount);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -90,13 +70,13 @@ void StackTrace::create(int32_t skipFrames) {
 const std::vector<std::string>& StackTrace::toStrVector() const {
   folly::old::call_once(btVectorFlag_, [&] {
     size_t frame = 0;
-    static folly::Indestructible<folly::fbstring> myname{
-        folly::demangle(typeid(decltype(*this))) + "::"};
-    btVector_.reserve(btPtrs_.size());
+    std::string_view framename;
+    char demangled[1024];
     for (auto ptr : btPtrs_) {
-      auto framename = translateFrame(ptr);
-      if (framename.starts_with(*myname)) {
-        continue; // ignore frames in the StackTrace class
+      if (absl::Symbolize(ptr, demangled, sizeof(demangled))) {
+        framename = demangled;
+      } else {
+        framename = "*no symbol name available for this frame";
       }
       btVector_.push_back(fmt::format("# {:<2d} {}", frame++, framename));
     }
@@ -118,71 +98,6 @@ const std::string& StackTrace::toString() const {
     }
   });
   return bt_;
-}
-
-std::string StackTrace::log(
-    const char* errorType,
-    std::string* out /* = NULL */) const {
-  std::string pid = folly::to<std::string>(getProcessId());
-
-  std::string msg;
-  msg += "Host: " + getHostName();
-  msg += "\nProcessID: " + pid;
-  msg += "\nThreadID: " +
-      folly::to<std::string>(reinterpret_cast<uintptr_t>(getThreadId()));
-  msg += "\nName: " + getAppName();
-  msg += "\nType: ";
-  if (errorType) {
-    msg += errorType;
-  } else {
-    msg += "(unknown error)";
-  }
-  msg += "\n\n";
-  msg += toString();
-  msg += "\n";
-
-  std::string tracefn = "/tmp/stacktrace." + pid + ".log";
-  std::ofstream f(tracefn.c_str());
-  if (f) {
-    f << msg;
-    f.close();
-  }
-
-  if (out) {
-    *out = msg;
-  }
-  return tracefn;
-}
-
-#if VELOX_HAS_SYMBOLIZER
-namespace {
-inline std::string translateFrameImpl(void* addressPtr) {
-  // TODO: lineNumbers has been disabled since 2009.
-  using namespace folly::symbolizer;
-
-  std::uintptr_t address = reinterpret_cast<std::uintptr_t>(addressPtr);
-  Symbolizer symbolizer(LocationInfoMode::DISABLED);
-  SymbolizedFrame frame;
-  symbolizer.symbolize(address, frame);
-
-  StringSymbolizePrinter printer(SymbolizePrinter::TERSE);
-  printer.print(frame);
-  return printer.str();
-}
-} // namespace
-#endif
-
-std::string StackTrace::translateFrame(void* addressPtr, bool /*lineNumbers*/) {
-#if VELOX_HAS_SYMBOLIZER
-  return std::invoke([addressPtr] { return translateFrameImpl(addressPtr); });
-#else
-  static_cast<void>(addressPtr);
-  return std::string{};
-#endif
-}
-
-std::string StackTrace::demangle(const char* mangled) {
-  return folly::demangle(mangled).toStdString();
 }
 
 } // namespace facebook::velox::process
