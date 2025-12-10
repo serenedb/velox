@@ -90,7 +90,7 @@ class TypeCoercer {
 
   /// Checks if 'fromType' can be implicitly converted to 'toType'.
   ///
-  /// @return true if conversion is possible.
+  /// @return "to" type and cost if conversion is possible.
   static Coercion coercible(const TypePtr& fromType, const TypePtr& toType);
 
   /// Replaces the entire coercions map with a new one.
