@@ -121,7 +121,7 @@ class FunctionRegistryTest : public testing::Test {
     }
   }
 
-  void testResolveVectorFunctionWithCoersions(
+  void testResolveVectorFunctionWithCoercions(
       const std::string& functionName,
       const std::vector<TypePtr>& types,
       const TypePtr& expected,
@@ -133,8 +133,16 @@ class FunctionRegistryTest : public testing::Test {
     if (expected != nullptr) {
       EXPECT_EQ(types.size(), coercions.size());
       EXPECT_EQ(expectedCoercions.size(), coercions.size());
-      for (size_t i = 0; i < expectedCoercions.size(); ++i) {
-        EXPECT_EQ(expectedCoercions[i], coercions[i]);
+      for (auto i = 0; i < coercions.size(); ++i) {
+        if (expectedCoercions[i] == nullptr) {
+          EXPECT_EQ(coercions[i], nullptr) << "Expected no coercion at " << i
+                                           << ": " << coercions[i]->toString();
+        } else {
+          ASSERT_NE(coercions[i], nullptr) << "at " << i;
+          EXPECT_EQ(*coercions[i], *expectedCoercions[i])
+              << "Expected: " << expectedCoercions[i]->toString()
+              << ", but got: " << coercions[i]->toString();
+        }
       }
     }
   }
@@ -185,12 +193,11 @@ class FunctionRegistryTest : public testing::Test {
       const ResolveFuncs& resolveFuncs,
       const TypePtr& expectedReturnType,
       const std::vector<TypePtr>& expectedCoercions) {
-    // auto type = resolveFuncs.resolveFunc(name, argTypes);
-    // ASSERT_TRUE(type == nullptr);
+    auto type = resolveFuncs.resolveFunc(name, argTypes);
+    ASSERT_TRUE(type == nullptr);
 
     std::vector<TypePtr> coercions;
-    auto type =
-        resolveFuncs.resolveWithCoercionsFunc(name, argTypes, coercions);
+    type = resolveFuncs.resolveWithCoercionsFunc(name, argTypes, coercions);
 
     VELOX_EXPECT_EQ_TYPES(type, expectedReturnType);
 
@@ -594,7 +601,7 @@ TEST_F(FunctionRegistryTest, hasVectorFunctionSignature5) {
       "vector_func_five",
       {MAP(BIGINT(), VARCHAR()), ARRAY(BIGINT())},
       ARRAY(BIGINT()));
-  testResolveVectorFunctionWithCoersions(
+  testResolveVectorFunctionWithCoercions(
       "vector_func_five",
       {MAP(BIGINT(), VARCHAR()), ARRAY(INTEGER())},
       ARRAY(BIGINT()),
@@ -754,11 +761,10 @@ TEST_F(FunctionRegistryTest, resolveFunctionWithCoercions) {
       removeFunction("foo");
     };
 
-    registerFunction<DummySimpleFunction, int32_t, int32_t,
-    int32_t>({"foo"}); registerFunction<DummySimpleFunction, int64_t,
-    int64_t, int64_t>({"foo"}); registerFunction<DummySimpleFunction, float,
-    float, float>({"foo"}); registerFunction<DummySimpleFunction, double,
-    double, double>({"foo"});
+    registerFunction<DummySimpleFunction, int32_t, int32_t, int32_t>({"foo"});
+    registerFunction<DummySimpleFunction, int64_t, int64_t, int64_t>({"foo"});
+    registerFunction<DummySimpleFunction, float, float, float>({"foo"});
+    registerFunction<DummySimpleFunction, double, double, double>({"foo"});
 
     testCoercions(
         "foo", {TINYINT(), TINYINT()}, INTEGER(), {INTEGER(), INTEGER()});
@@ -880,6 +886,51 @@ TEST_F(FunctionRegistryTest, resolveFunctionWithCoercions) {
         std::make_unique<DummyVectorFunction>());
 
     testCoercions("foo", {TINYINT(), REAL()}, REAL(), {REAL(), nullptr});
+  }
+
+  {
+    SCOPE_EXIT {
+      removeFunction("foo");
+    };
+
+    exec::registerVectorFunction(
+        "foo",
+        {velox::exec::FunctionSignatureBuilder()
+             .typeVariable("K")
+             .typeVariable("V")
+             .returnType("array(K)")
+             .argumentType("map(K,V)")
+             .argumentType("map(V,K)")
+             .build()},
+        std::make_unique<DummyVectorFunction>());
+
+    testCoercions(
+        "foo",
+        {MAP(SMALLINT(), DOUBLE()), MAP(INTEGER(), REAL())},
+        ARRAY(REAL()),
+        {MAP(REAL(), DOUBLE()), MAP(DOUBLE(), REAL())});
+  }
+
+  {
+    SCOPE_EXIT {
+      removeFunction("foo");
+    };
+
+    exec::registerVectorFunction(
+        "foo",
+        {velox::exec::FunctionSignatureBuilder()
+             .typeVariable("K")
+             .returnType("K")
+             .argumentType("array(array(array(array(K))))")
+             .argumentType("array(K)")
+             .build()},
+        std::make_unique<DummyVectorFunction>());
+
+    testCoercions(
+        "foo",
+        {ARRAY(ARRAY(ARRAY(ARRAY(INTEGER())))), ARRAY(SMALLINT())},
+        INTEGER(),
+        {nullptr, ARRAY(INTEGER())});
   }
 }
 

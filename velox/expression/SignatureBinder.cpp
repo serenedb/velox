@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 #include <boost/algorithm/string.hpp>
-#include <velox/common/base/Exceptions.h>
-#include <velox/expression/TypeSignature.h>
 #include <algorithm>
 #include <optional>
 #include <unordered_map>
 
+#include "velox/common/base/Exceptions.h"
 #include "velox/expression/SignatureBinder.h"
+#include "velox/expression/TypeSignature.h"
 #include "velox/expression/type_calculation/TypeCalculation.h"
 #include "velox/type/Type.h"
 #include "velox/type/TypeCoercer.h"
@@ -119,6 +119,9 @@ bool checkNamedRowField(
 bool checkSignatureProperties(
     const SignatureVariable& signature,
     const TypePtr& actualType) {
+  if (!signature.isTypeParameter()) {
+    return false;
+  }
   if (signature.knownTypesOnly() && actualType->isUnKnown()) {
     return false;
   }
@@ -142,8 +145,6 @@ bool SignatureBinder::tryBind() {
   return tryBind(false, coercions);
 }
 
-namespace {} // namespace
-
 bool SignatureBinder::resolveTypeVars(
     const TypeSignature& signature,
     const TypePtr& actualType,
@@ -151,9 +152,9 @@ bool SignatureBinder::resolveTypeVars(
     bool allowCoercion) {
   const auto& varName = signature.baseName();
   if (variables().contains(varName)) {
+    auto& variableSignature = variables().at(varName);
     auto& varType = typeVariablesBindings_[varName];
     if (!varType) {
-      auto& variableSignature = variables().at(varName);
       if (!checkSignatureProperties(variableSignature, actualType)) {
         return false;
       }
@@ -167,6 +168,9 @@ bool SignatureBinder::resolveTypeVars(
           *coercion = c;
         }
       } else if (auto c = TypeCoercer::coercible(varType, actualType)) {
+        if (!checkSignatureProperties(variableSignature, actualType)) {
+          return false;
+        }
         varType = actualType;
       } else {
         return false;
@@ -250,22 +254,31 @@ bool SignatureBinder::tryBind(
     if (actualTypes_.size() + 1 < formalArgsCnt) {
       return false;
     }
-
+    if (!allowCoercions) {
+      if (!isAny(signature_.argumentTypes().back())) {
+        if (actualTypes_.size() > formalArgsCnt) {
+          auto& type = actualTypes_[formalArgsCnt - 1];
+          for (auto i = formalArgsCnt; i < actualTypes_.size(); i++) {
+            if (!type->equivalent(*actualTypes_[i]) &&
+                actualTypes_[i]->kind() != TypeKind::UNKNOWN) {
+              return false;
+            }
+          }
+        }
+      }
+    }
   } else {
     if (formalArgsCnt != actualTypes_.size()) {
       return false;
     }
   }
 
-  if (!std::ranges::all_of(actualTypes_, [](const auto& actualType) {
-        return static_cast<bool>(actualType);
-      })) {
-    return false;
-  }
-
-  // Phase 1: Calculate types for each var
+  // Phase 1: Calculate certain types for each type var
   for (size_t i = 0; i < actualTypes_.size(); ++i) {
     const auto& actualType = actualTypes_[i];
+    if (!actualType) {
+      return false;
+    }
     const auto& formalArgSignature =
         i < formalArgsCnt ? formalArgs[i] : formalArgs.back();
     if (!resolveTypeVars(
@@ -284,36 +297,17 @@ bool SignatureBinder::tryBind(
               formalArgSignature, actualType, &coercions[i])) {
         return false;
       }
-    }
-  }
-
-  for (const auto& [varName, varType] : variables()) {
-    if (varType.isTypeParameter()) {
-      VELOX_CHECK(
-          typeVariablesBindings_.contains(varName),
-          "All type params should be resolved");
-    }
-  }
-
-  // todo fix here, try bind less times
-  for (auto i = 0; i < actualTypes_.size(); i++) {
-    const auto& formalArgSignature =
-        i < formalArgsCnt ? formalArgs[i] : formalArgs.back();
-    const auto& actual = actualTypes_[i];
-    if (actual->isUnKnown()) { // TODO(mkornaukhov) remove after adding
-                               // sane 'Any' type
-      continue;
-    }
-    if (allowCoercions) {
       if (coercions[i]) {
         continue;
       }
       if (!SignatureBinderBase::tryBindWithCoercion(
-              formalArgSignature, actual, coercions[i])) {
+              formalArgSignature, actualType, coercions[i])) {
         return false;
       }
-    } else {
-      if (!SignatureBinderBase::tryBind(formalArgSignature, actual)) {
+    }
+  } else {
+    for (size_t i = 0; i < formalArgsCnt && i < actualTypes_.size(); i++) {
+      if (!SignatureBinderBase::tryBind(formalArgs[i], actualTypes_[i])) {
         return false;
       }
     }
@@ -410,11 +404,11 @@ bool SignatureBinderBase::tryBind(
     VELOX_CHECK(variable.isTypeParameter(), "Not expecting integer variable");
 
     const auto& varType = typeVariablesBindings_[variable.name()];
-    VELOX_CHECK(varType);
+    VELOX_CHECK(varType, "Not expecting unbinded type variable");
     if (allowCoercion && !varType->equivalent(*actualType)) {
       // for bind params only
-      coercion.type = varType;
-      coercion.cost = 0; // valid?
+      coercion = TypeCoercer::coercible(actualType, varType);
+      VELOX_CHECK(coercion, "Coercion have already been checked");
     }
     return true;
   }

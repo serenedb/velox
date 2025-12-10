@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 #include "velox/type/TypeCoercer.h"
-#include <velox/type/Type.h>
-#include <optional>
 
 namespace facebook::velox {
 

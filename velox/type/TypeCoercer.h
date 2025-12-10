@@ -15,7 +15,6 @@
  */
 #pragma once
 
-#include <cstddef>
 #include "velox/type/Type.h"
 
 namespace facebook::velox {
