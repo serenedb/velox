@@ -251,23 +251,10 @@ bool SignatureBinder::tryBind(std::vector<Coercion>* coercions) {
   for (size_t i = 0; i < bound; ++i) {
     const auto& formalArgSignature =
         i < formalArgsCnt ? formalArgs[i] : formalArgs.back();
-  }
-  if (coercions) {
-    // Phase 2: check for compatibility
-    for (size_t i = 0; i < actualTypes_.size(); ++i) {
-      const auto& formalArgSignature =
-          i < formalArgsCnt ? formalArgs[i] : formalArgs.back();
-      if (!SignatureBinderBase::tryBind(
-              formalArgSignature, actualTypes_[i], &(*coercions)[i])) {
-        return false;
-      }
-    }
-  } else {
-    for (size_t i = 0; i < formalArgsCnt && i < actualTypes_.size(); i++) {
-      if (!SignatureBinderBase::tryBind(
-              formalArgs[i], actualTypes_[i], nullptr)) {
-        return false;
-      }
+    Coercion* coercion = coercions ? &(*coercions)[i] : nullptr;
+    if (!SignatureBinderBase::tryBind(
+            formalArgSignature, actualTypes_[i], &(*coercions)[i])) {
+      return false;
     }
   }
 
