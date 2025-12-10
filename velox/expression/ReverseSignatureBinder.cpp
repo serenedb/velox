@@ -19,8 +19,8 @@
 namespace facebook::velox::exec {
 
 bool ReverseSignatureBinder::tryBind() {
-  tryBindSucceeded_ =
-      SignatureBinderBase::tryBind(signature_.returnType(), returnType_);
+  tryBindSucceeded_ = SignatureBinderBase::tryBind(
+      signature_.returnType(), returnType_, nullptr);
   return tryBindSucceeded_;
 }
 

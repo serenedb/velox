@@ -144,13 +144,16 @@ bool SignatureBinder::tryBind() {
   return tryBind(nullptr);
 }
 
+// Traverse all types in signatures and deduces the least common type for each
+// type parameter. Recursion is needed to traverse complex types like Map<K, V>,
+// Array<Array<T>>, etc
 bool SignatureBinder::resolveTypeVars(
     const TypeSignature& signature,
     const TypePtr& actualType,
     bool allowCoercions) {
   const auto& varName = signature.baseName();
-  if (variables().contains(varName)) {
-    auto& variableSignature = variables().at(varName);
+  if (auto varIt = variables().find(varName); varIt != variables().end()) {
+    const auto& variableSignature = varIt->second;
     auto& varType = typeVariablesBindings_[varName];
     if (!varType) {
       if (!checkSignatureProperties(variableSignature, actualType)) {
@@ -179,6 +182,8 @@ bool SignatureBinder::resolveTypeVars(
   }
   const auto& signatureParams = signature.parameters();
   const auto& actualParams = actualType->parameters();
+
+  // Simple type in signature, no further resolving var types
   if (signatureParams.empty()) {
     return true;
   }
@@ -211,16 +216,13 @@ bool SignatureBinder::tryBind(std::vector<Coercion>* coercions) {
     if (actualTypes_.size() + 1 < formalArgsCnt) {
       return false;
     }
-    if (!coercions) {
-      if (!isAny(signature_.argumentTypes().back())) {
-        if (actualTypes_.size() > formalArgsCnt) {
-          auto& type = actualTypes_[formalArgsCnt - 1];
-          for (auto i = formalArgsCnt; i < actualTypes_.size(); i++) {
-            if (!type->equivalent(*actualTypes_[i]) &&
-                actualTypes_[i]->kind() != TypeKind::UNKNOWN) {
-              return false;
-            }
-          }
+    if (!coercions && !isAny(signature_.argumentTypes().back()) &&
+        actualTypes_.size() > formalArgsCnt) {
+      auto& type = actualTypes_[formalArgsCnt - 1];
+      for (size_t i = formalArgsCnt; i < actualTypes_.size(); i++) {
+        if (!type->equivalent(*actualTypes_[i]) &&
+            actualTypes_[i]->kind() != TypeKind::UNKNOWN) {
+          return false;
         }
       }
     }
@@ -243,19 +245,27 @@ bool SignatureBinder::tryBind(std::vector<Coercion>* coercions) {
     }
   }
 
+  const auto bound = coercions ? actualTypes_.size()
+                               : std::min(actualTypes_.size(), formalArgsCnt);
+
+  for (size_t i = 0; i < bound; ++i) {
+    const auto& formalArgSignature =
+        i < formalArgsCnt ? formalArgs[i] : formalArgs.back();
+  }
   if (coercions) {
     // Phase 2: check for compatibility
     for (size_t i = 0; i < actualTypes_.size(); ++i) {
       const auto& formalArgSignature =
           i < formalArgsCnt ? formalArgs[i] : formalArgs.back();
-      if (!SignatureBinderBase::tryBindWithCoercion(
-              formalArgSignature, actualTypes_[i], (*coercions)[i])) {
+      if (!SignatureBinderBase::tryBind(
+              formalArgSignature, actualTypes_[i], &(*coercions)[i])) {
         return false;
       }
     }
   } else {
     for (size_t i = 0; i < formalArgsCnt && i < actualTypes_.size(); i++) {
-      if (!SignatureBinderBase::tryBind(formalArgs[i], actualTypes_[i])) {
+      if (!SignatureBinderBase::tryBind(
+              formalArgs[i], actualTypes_[i], nullptr)) {
         return false;
       }
     }
@@ -318,19 +328,6 @@ bool SignatureBinderBase::checkOrSetIntegerParameter(
   return true;
 }
 
-bool SignatureBinderBase::tryBindWithCoercion(
-    const exec::TypeSignature& typeSignature,
-    const TypePtr& actualType,
-    Coercion& coercion) {
-  return tryBind(typeSignature, actualType, &coercion);
-}
-
-bool SignatureBinderBase::tryBind(
-    const exec::TypeSignature& typeSignature,
-    const TypePtr& actualType) {
-  return tryBind(typeSignature, actualType, nullptr);
-}
-
 bool SignatureBinderBase::tryBind(
     const exec::TypeSignature& typeSignature,
     const TypePtr& actualType,
@@ -367,15 +364,13 @@ bool SignatureBinderBase::tryBind(
   auto actualTypeName =
       boost::algorithm::to_upper_copy(std::string(actualType->name()));
 
-  if (typeName != actualTypeName) {
-    if (coercion) {
-      // It's better to postpone this in case of Unknown type because of
-      // processing params for complex types
-      if (auto availableCoercion =
-              TypeCoercer::coerceTypeBase(actualType, typeName)) {
-        *coercion = availableCoercion;
-        return true;
-      }
+  if (typeName != actualTypeName && coercion) {
+    // TODO: It's better to postpone this in case of Unknown type because of
+    // processing params for complex types
+    if (auto availableCoercion =
+            TypeCoercer::coerceTypeBase(actualType, typeName)) {
+      *coercion = availableCoercion;
+      return true;
     }
     return false;
   }
@@ -416,7 +411,7 @@ bool SignatureBinderBase::tryBind(
         return true;
       }
     } else {
-      return tryBind(typeParam, actualChildType);
+      return tryBind(typeParam, actualChildType, nullptr);
     }
   }
 
@@ -425,7 +420,7 @@ bool SignatureBinderBase::tryBind(
     return false;
   }
 
-  bool hasCoercion = false;
+  bool needsCoercion = false;
   int32_t totalCost = 0;
   std::vector<TypePtr> newParameters;
   newParameters.reserve(params.size());
@@ -461,8 +456,8 @@ bool SignatureBinderBase::tryBind(
         if (!tryBind(params[i], actualParameter.type, &childCoercion)) {
           return false;
         }
-        if (coercion && childCoercion.type != nullptr) {
-          hasCoercion = true;
+        if (coercion && childCoercion.type) {
+          needsCoercion = true;
           totalCost += childCoercion.cost;
           newParameters.emplace_back(childCoercion.type);
         } else {
@@ -473,7 +468,7 @@ bool SignatureBinderBase::tryBind(
     }
   }
 
-  if (coercion && hasCoercion) {
+  if (coercion && needsCoercion) {
     std::vector<TypeParameter> typeParameters;
     typeParameters.reserve(newParameters.size());
     for (auto i = 0; i < newParameters.size(); ++i) {

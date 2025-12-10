@@ -29,20 +29,15 @@ class SignatureBinderBase {
   /// Return true if actualType can bind to typeSignature and update bindings_
   /// accordingly. The number of parameters in typeSignature and actualType
   /// must match. Return false otherwise.
+  /// Non-null 'coercion' allows implicit type conversion if actualType
+  /// doesn't match typeSignature exactly.
+  /// @param coercion Type coercion necessary to bind actualType to
+  /// typeSignature if there is no exact match. 'coercion->type' is null if
+  /// there is exact match.
   bool tryBind(
       const exec::TypeSignature& typeSignature,
-      const TypePtr& actualType);
-
-  /// Like 'tryBind', but allows implicit type conversion if actualType
-  /// doesn't match typeSignature exactly.
-  ///
-  /// @param coercion Type coercion necessary to bind actualType to
-  /// typeSignature if there is no exact match. 'coercion.type' is null if
-  /// there is exact match.
-  bool tryBindWithCoercion(
-      const exec::TypeSignature& typeSignature,
       const TypePtr& actualType,
-      Coercion& coercion);
+      Coercion* coercion);
 
   // Return the variables of the signature.
   auto& variables() const {
@@ -84,11 +79,6 @@ class SignatureBinderBase {
   bool tryBindIntegerParameters(
       const std::vector<exec::TypeSignature>& parameters,
       const TypePtr& actualType);
-
-  bool tryBind(
-      const exec::TypeSignature& typeSignature,
-      const TypePtr& actualType,
-      Coercion* coercion);
 };
 
 /// Resolves generic type names in the function signature using actual input
