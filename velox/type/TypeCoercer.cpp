@@ -39,7 +39,11 @@ Coercion TypeCoercer::coerceTypeBase(
     const TypePtr& fromType,
     const std::string& toTypeName) {
   if (fromType->name() == toTypeName) {
-    return Coercion{.type = fromType, .cost = 0};
+    return Coercion{fromType, 0};
+  }
+  if (fromType == UNKNOWN()) {
+    // Cast Unknwon to complex type is not supported yet
+    return Coercion{getType(toTypeName, {}), 0};
   }
 
   auto it = kAllowedCoercions.find({fromType->name(), toTypeName});
@@ -51,8 +55,10 @@ Coercion TypeCoercer::coerceTypeBase(
 }
 
 // static
-Coercion TypeCoercer::coercible(const TypePtr& fromType, const TypePtr& toType) {
-  if (fromType->isUnKnown()) {
+Coercion TypeCoercer::coercible(
+    const TypePtr& fromType,
+    const TypePtr& toType) {
+  if (fromType == UNKNOWN()) {
     return Coercion{toType, 0};
   }
 
