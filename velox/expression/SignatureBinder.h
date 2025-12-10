@@ -88,8 +88,7 @@ class SignatureBinderBase {
   bool tryBind(
       const exec::TypeSignature& typeSignature,
       const TypePtr& actualType,
-      bool allowCoercion,
-      Coercion& coercion);
+      Coercion* coercion);
 };
 
 /// Resolves generic type names in the function signature using actual input
@@ -184,12 +183,11 @@ class SignatureBinder : private SignatureBinderBase {
           varcharEnumVariablesBindings);
 
  private:
-  bool tryBind(bool allowCoercions, std::vector<Coercion>& coercions);
+  bool tryBind(std::vector<Coercion>* coercions);
   bool resolveTypeVars(
       const TypeSignature& signature,
       const TypePtr& actualType,
-      Coercion* coercion,
-      bool allowCoercion);
+      Coercion* coercion);
   bool checkTypeVarsCoercions(
       const TypeSignature& signature,
       const TypePtr& actualType,
