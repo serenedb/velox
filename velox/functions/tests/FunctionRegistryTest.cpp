@@ -932,6 +932,24 @@ TEST_F(FunctionRegistryTest, resolveFunctionWithCoercions) {
         INTEGER(),
         {nullptr, ARRAY(INTEGER())});
   }
+
+  {
+    SCOPE_EXIT {
+      removeFunction("foo");
+    };
+
+    exec::registerVectorFunction(
+        "foo",
+        {velox::exec::FunctionSignatureBuilder()
+             .returnType("integer")
+             .argumentType("integer")
+             .argumentType("integer")
+             .build()},
+        std::make_unique<DummyVectorFunction>());
+
+    testCoercions(
+        "foo", {INTEGER(), UNKNOWN()}, INTEGER(), {nullptr, INTEGER()});
+  }
 }
 
 TEST_F(FunctionRegistryTest, resolveSpecialForms) {
