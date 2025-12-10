@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <cstddef>
 #include "velox/type/Type.h"
 
 namespace facebook::velox {
@@ -35,6 +36,10 @@ struct Coercion {
   void reset() {
     type = nullptr;
     cost = 0;
+  }
+
+  explicit operator bool() const {
+    return type != nullptr;
   }
 
   /// Returns overall cost of a list of coercions by adding up individual costs.
@@ -80,14 +85,14 @@ class TypeCoercer {
   /// with the given name.
   ///
   /// @return "to" type and cost if conversion is possible.
-  static std::optional<Coercion> coerceTypeBase(
+  static Coercion coerceTypeBase(
       const TypePtr& fromType,
       const std::string& toTypeName);
 
   /// Checks if 'fromType' can be implicitly converted to 'toType'.
   ///
   /// @return true if conversion is possible.
-  static bool coercible(const TypePtr& fromType, const TypePtr& toType);
+  static Coercion coercible(const TypePtr& fromType, const TypePtr& toType);
 
   /// Replaces the entire coercions map with a new one.
   ///

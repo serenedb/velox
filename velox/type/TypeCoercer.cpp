@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include "velox/type/TypeCoercer.h"
+#include <velox/type/Type.h>
+#include <optional>
 
 namespace facebook::velox {
 
@@ -35,7 +37,7 @@ facebook::velox::AllowedCoercions kAllowedCoercions;
 } // namespace
 
 // static
-std::optional<Coercion> TypeCoercer::coerceTypeBase(
+Coercion TypeCoercer::coerceTypeBase(
     const TypePtr& fromType,
     const std::string& toTypeName) {
   if (fromType->name() == toTypeName) {
@@ -47,35 +49,34 @@ std::optional<Coercion> TypeCoercer::coerceTypeBase(
     return it->second;
   }
 
-  return std::nullopt;
+  return Coercion{nullptr};
 }
 
 // static
-bool TypeCoercer::coercible(const TypePtr& fromType, const TypePtr& toType) {
+Coercion TypeCoercer::coercible(const TypePtr& fromType, const TypePtr& toType) {
   if (fromType->isUnKnown()) {
-    return true;
+    return Coercion{toType, 0};
   }
 
   if (fromType->size() == 0) {
-    if (auto coercion = TypeCoercer::coerceTypeBase(fromType, toType->name())) {
-      return true;
-    }
-
-    return false;
+    return TypeCoercer::coerceTypeBase(fromType, toType->name());
   }
 
   if (fromType->name() != toType->name() ||
       fromType->size() != toType->size()) {
-    return false;
+    return Coercion{nullptr};
   }
 
+  int32_t cost = 0;
   for (auto i = 0; i < fromType->size(); i++) {
-    if (!coercible(fromType->childAt(i), toType->childAt(i))) {
-      return false;
+    if (auto c = coercible(fromType->childAt(i), toType->childAt(i))) {
+      cost += c.cost;
+    } else {
+      return Coercion(nullptr);
     }
   }
 
-  return true;
+  return Coercion{toType, cost};
 }
 
 // static

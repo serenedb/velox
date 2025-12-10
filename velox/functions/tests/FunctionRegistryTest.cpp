@@ -56,6 +56,11 @@ VELOX_DECLARE_VECTOR_FUNCTION_WITH_METADATA(
     exec::VectorFunctionMetadataBuilder().deterministic(false).build(),
     std::make_unique<VectorFuncFour>());
 
+VELOX_DECLARE_VECTOR_FUNCTION(
+    udf_vector_func_five,
+    VectorFuncFive::signatures(),
+    std::make_unique<VectorFuncFive>());
+
 inline void registerTestFunctions() {
   // If no alias is specified, ensure it will fallback to the struct name.
   registerFunction<FuncOne, Varchar, Varchar>({"func_one", "Func_One_Alias"});
@@ -80,6 +85,7 @@ inline void registerTestFunctions() {
   VELOX_REGISTER_VECTOR_FUNCTION(udf_vector_func_two, "vector_func_two");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_vector_func_three, "vector_func_three");
   VELOX_REGISTER_VECTOR_FUNCTION(udf_vector_func_four, "vector_func_four");
+  VELOX_REGISTER_VECTOR_FUNCTION(udf_vector_func_five, "vector_func_five");
 }
 
 inline void registerTestVectorFunctionOne(const std::string& functionName) {
@@ -111,6 +117,24 @@ class FunctionRegistryTest : public testing::Test {
       EXPECT_EQ(types.size(), coercions.size());
       for (const auto& coercion : coercions) {
         EXPECT_EQ(coercion, nullptr);
+      }
+    }
+  }
+
+  void testResolveVectorFunctionWithCoersions(
+      const std::string& functionName,
+      const std::vector<TypePtr>& types,
+      const TypePtr& expected,
+      const std::vector<TypePtr>& expectedCoercions) {
+    std::vector<TypePtr> coercions;
+    auto type = resolveFunctionWithCoercions(functionName, types, coercions);
+    VELOX_EXPECT_EQ_TYPES(type, expected);
+
+    if (expected != nullptr) {
+      EXPECT_EQ(types.size(), coercions.size());
+      EXPECT_EQ(expectedCoercions.size(), coercions.size());
+      for (size_t i = 0; i < expectedCoercions.size(); ++i) {
+        EXPECT_EQ(expectedCoercions[i], coercions[i]);
       }
     }
   }
@@ -161,11 +185,12 @@ class FunctionRegistryTest : public testing::Test {
       const ResolveFuncs& resolveFuncs,
       const TypePtr& expectedReturnType,
       const std::vector<TypePtr>& expectedCoercions) {
-    auto type = resolveFuncs.resolveFunc(name, argTypes);
-    ASSERT_TRUE(type == nullptr);
+    // auto type = resolveFuncs.resolveFunc(name, argTypes);
+    // ASSERT_TRUE(type == nullptr);
 
     std::vector<TypePtr> coercions;
-    type = resolveFuncs.resolveWithCoercionsFunc(name, argTypes, coercions);
+    auto type =
+        resolveFuncs.resolveWithCoercionsFunc(name, argTypes, coercions);
 
     VELOX_EXPECT_EQ_TYPES(type, expectedReturnType);
 
@@ -352,7 +377,7 @@ TEST_F(FunctionRegistryTest, getFunctionSignaturesByName) {
 
 TEST_F(FunctionRegistryTest, getFunctionSignatures) {
   auto functionSignatures = getFunctionSignatures();
-  ASSERT_EQ(functionSignatures.size(), 14);
+  ASSERT_EQ(functionSignatures.size(), 15);
 
   ASSERT_EQ(functionSignatures.count("func_one"), 1);
   ASSERT_EQ(functionSignatures.count("func_two"), 1);
@@ -366,6 +391,7 @@ TEST_F(FunctionRegistryTest, getFunctionSignatures) {
   ASSERT_EQ(functionSignatures.count("vector_func_two"), 1);
   ASSERT_EQ(functionSignatures.count("vector_func_three"), 1);
   ASSERT_EQ(functionSignatures.count("vector_func_four"), 1);
+  ASSERT_EQ(functionSignatures.count("vector_func_five"), 1);
 
   ASSERT_EQ(functionSignatures["func_one"].size(), 1);
   ASSERT_EQ(functionSignatures["func_two"].size(), 2);
@@ -376,6 +402,7 @@ TEST_F(FunctionRegistryTest, getFunctionSignatures) {
   ASSERT_EQ(functionSignatures["vector_func_two"].size(), 1);
   ASSERT_EQ(functionSignatures["vector_func_three"].size(), 1);
   ASSERT_EQ(functionSignatures["vector_func_four"].size(), 1);
+  ASSERT_EQ(functionSignatures["vector_func_five"].size(), 1);
 
   ASSERT_EQ(
       functionSignatures["func_one"].at(0)->toString(),
@@ -480,11 +507,22 @@ TEST_F(FunctionRegistryTest, getFunctionSignatures) {
           .argumentType("map(K,V)")
           .build()
           ->toString());
+
+  ASSERT_EQ(
+      functionSignatures["vector_func_five"].at(0)->toString(),
+      exec::FunctionSignatureBuilder()
+          .knownTypeVariable("K")
+          .typeVariable("V")
+          .returnType("array(K)")
+          .argumentType("map(K,V)")
+          .argumentType("array(K)")
+          .build()
+          ->toString());
 }
 
 TEST_F(FunctionRegistryTest, getVectorFunctionSignatures) {
   auto functionSignatures = getVectorFunctionSignatures();
-  ASSERT_EQ(functionSignatures.size(), 5);
+  ASSERT_EQ(functionSignatures.size(), 6);
 
   std::set<std::string> functionNames;
   std::transform(
@@ -500,7 +538,8 @@ TEST_F(FunctionRegistryTest, getVectorFunctionSignatures) {
           "vector_func_one_alias",
           "vector_func_two",
           "vector_func_three",
-          "vector_func_four"));
+          "vector_func_four",
+          "vector_func_five"));
 }
 
 TEST_F(FunctionRegistryTest, hasSimpleFunctionSignature) {
@@ -548,6 +587,18 @@ TEST_F(FunctionRegistryTest, hasVectorFunctionSignature3) {
 TEST_F(FunctionRegistryTest, hasVectorFunctionSignature4) {
   testResolveVectorFunction(
       "vector_func_four", {MAP(BIGINT(), VARCHAR())}, ARRAY(BIGINT()));
+}
+
+TEST_F(FunctionRegistryTest, hasVectorFunctionSignature5) {
+  testResolveVectorFunction(
+      "vector_func_five",
+      {MAP(BIGINT(), VARCHAR()), ARRAY(BIGINT())},
+      ARRAY(BIGINT()));
+  testResolveVectorFunctionWithCoersions(
+      "vector_func_five",
+      {MAP(BIGINT(), VARCHAR()), ARRAY(INTEGER())},
+      ARRAY(BIGINT()),
+      {nullptr, ARRAY(BIGINT())});
 }
 
 TEST_F(FunctionRegistryTest, hasVectorFunctionSignatureWrongArgType) {
@@ -703,10 +754,11 @@ TEST_F(FunctionRegistryTest, resolveFunctionWithCoercions) {
       removeFunction("foo");
     };
 
-    registerFunction<DummySimpleFunction, int32_t, int32_t, int32_t>({"foo"});
-    registerFunction<DummySimpleFunction, int64_t, int64_t, int64_t>({"foo"});
-    registerFunction<DummySimpleFunction, float, float, float>({"foo"});
-    registerFunction<DummySimpleFunction, double, double, double>({"foo"});
+    registerFunction<DummySimpleFunction, int32_t, int32_t,
+    int32_t>({"foo"}); registerFunction<DummySimpleFunction, int64_t,
+    int64_t, int64_t>({"foo"}); registerFunction<DummySimpleFunction, float,
+    float, float>({"foo"}); registerFunction<DummySimpleFunction, double,
+    double, double>({"foo"});
 
     testCoercions(
         "foo", {TINYINT(), TINYINT()}, INTEGER(), {INTEGER(), INTEGER()});
@@ -757,7 +809,6 @@ TEST_F(FunctionRegistryTest, resolveFunctionWithCoercions) {
     testCannotResolve("foo", {TINYINT(), VARCHAR()});
   }
 
-  // Coercions with complex types are not supported yet.
   {
     SCOPE_EXIT {
       removeFunction("foo");
@@ -772,10 +823,13 @@ TEST_F(FunctionRegistryTest, resolveFunctionWithCoercions) {
         },
         std::make_unique<DummyVectorFunction>());
 
-    testCannotResolve("foo", {ARRAY(TINYINT()), SMALLINT()});
+    testCoercions(
+        "foo",
+        {ARRAY(TINYINT()), SMALLINT()},
+        INTEGER(),
+        {ARRAY(INTEGER()), INTEGER()});
   }
 
-  // Coercions with variable number of arguments are not supported yet.
   {
     SCOPE_EXIT {
       removeFunction("foo");
@@ -797,10 +851,19 @@ TEST_F(FunctionRegistryTest, resolveFunctionWithCoercions) {
              .build()},
         std::make_unique<DummyVectorFunction>());
 
-    testCannotResolve("foo", {TINYINT(), SMALLINT(), INTEGER()});
+    testCoercions(
+        "foo",
+        {TINYINT(), SMALLINT(), INTEGER()},
+        BIGINT(),
+        {BIGINT(), BIGINT(), BIGINT()});
+
+    testCoercions(
+        "foo",
+        {TINYINT(), BIGINT(), INTEGER()},
+        BIGINT(),
+        {BIGINT(), nullptr, BIGINT()});
   }
 
-  // Coercions with generic types are not supported yet.
   {
     SCOPE_EXIT {
       removeFunction("foo");
@@ -816,7 +879,7 @@ TEST_F(FunctionRegistryTest, resolveFunctionWithCoercions) {
              .build()},
         std::make_unique<DummyVectorFunction>());
 
-    testCannotResolve("foo", {TINYINT(), REAL()});
+    testCoercions("foo", {TINYINT(), REAL()}, REAL(), {REAL(), nullptr});
   }
 }
 

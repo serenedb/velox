@@ -185,6 +185,15 @@ class SignatureBinder : private SignatureBinderBase {
 
  private:
   bool tryBind(bool allowCoercions, std::vector<Coercion>& coercions);
+  bool resolveTypeVars(
+      const TypeSignature& signature,
+      const TypePtr& actualType,
+      Coercion* coercion,
+      bool allowCoercion);
+  bool checkTypeVarsCoercions(
+      const TypeSignature& signature,
+      const TypePtr& actualType,
+      Coercion* coercion);
 
   const std::vector<TypePtr>& actualTypes_;
 };
