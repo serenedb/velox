@@ -147,7 +147,7 @@ bool SignatureBinder::tryBind() {
 bool SignatureBinder::resolveTypeVars(
     const TypeSignature& signature,
     const TypePtr& actualType,
-    Coercion* coercion) {
+    bool allowCoercions) {
   const auto& varName = signature.baseName();
   if (variables().contains(varName)) {
     auto& variableSignature = variables().at(varName);
@@ -157,24 +157,25 @@ bool SignatureBinder::resolveTypeVars(
         return false;
       }
       varType = actualType;
-    } else if (!varType->equivalent(*actualType)) {
-      if (!coercion) {
-        return false;
-      }
-      if (auto c = TypeCoercer::coercible(actualType, varType)) {
-        if (coercion) {
-          *coercion = c;
-        }
-      } else if (auto c = TypeCoercer::coercible(varType, actualType)) {
-        if (!checkSignatureProperties(variableSignature, actualType)) {
-          return false;
-        }
-        varType = actualType;
-      } else {
-        return false;
-      }
+      return true;
     }
-    return true;
+    if (varType->equivalent(*actualType)) {
+      return true;
+    }
+    if (!allowCoercions) {
+      return false;
+    }
+    if (TypeCoercer::coercible(actualType, varType)) {
+      return true;
+    }
+    if (auto c = TypeCoercer::coercible(varType, actualType)) {
+      if (!checkSignatureProperties(variableSignature, actualType)) {
+        return false;
+      }
+      varType = actualType;
+      return true;
+    }
+    return false;
   }
   const auto& signatureParams = signature.parameters();
   const auto& actualParams = actualType->parameters();
@@ -188,55 +189,7 @@ bool SignatureBinder::resolveTypeVars(
         ? signatureParams[j]
         : signatureParams.back();
     if (actualParam.kind == TypeParameterKind::kType) {
-      if (coercion) {
-        Coercion childCoercion;
-
-        if (!resolveTypeVars(
-                signatureParam, actualParam.type, &childCoercion)) {
-          return false;
-        }
-      } else {
-        if (!resolveTypeVars(signatureParam, actualParam.type, nullptr)) {
-          return false;
-        }
-      }
-    }
-  }
-
-  return true;
-}
-
-bool SignatureBinder::checkTypeVarsCoercions(
-    const TypeSignature& signature,
-    const TypePtr& actualType,
-    Coercion* coercion) {
-  const auto& varName = signature.baseName();
-  if (variables().contains(varName)) {
-    auto& varType = typeVariablesBindings_[varName];
-    if (!varType->equivalent(*actualType)) {
-      if (auto c = TypeCoercer::coercible(actualType, varType)) {
-        if (coercion) {
-          *coercion = c;
-        }
-      } else {
-        return false;
-      }
-    }
-    return true;
-  }
-  const auto& signatureParams = signature.parameters();
-  const auto& actualParams = actualType->parameters();
-  if (signatureParams.empty()) {
-    return true;
-  }
-
-  for (size_t j = 0; j < actualParams.size(); ++j) {
-    const auto& actualParam = actualParams[j];
-    const auto& signatureParam = j < signatureParams.size()
-        ? signatureParams[j]
-        : signatureParams.back();
-    if (actualParam.kind == TypeParameterKind::kType) {
-      if (!checkTypeVarsCoercions(signatureParam, actualParam.type, nullptr)) {
+      if (!resolveTypeVars(signatureParam, actualParam.type, allowCoercions)) {
         return false;
       }
     }
@@ -245,10 +198,10 @@ bool SignatureBinder::checkTypeVarsCoercions(
   return true;
 }
 
-bool SignatureBinder::tryBind(std::vector<Coercion>* coercionsPtr) {
-  if (coercionsPtr) {
-    coercionsPtr->clear();
-    coercionsPtr->resize(actualTypes_.size());
+bool SignatureBinder::tryBind(std::vector<Coercion>* coercions) {
+  if (coercions) {
+    coercions->clear();
+    coercions->resize(actualTypes_.size());
   }
 
   const auto& formalArgs = signature_.argumentTypes();
@@ -258,7 +211,7 @@ bool SignatureBinder::tryBind(std::vector<Coercion>* coercionsPtr) {
     if (actualTypes_.size() + 1 < formalArgsCnt) {
       return false;
     }
-    if (!coercionsPtr) {
+    if (!coercions) {
       if (!isAny(signature_.argumentTypes().back())) {
         if (actualTypes_.size() > formalArgsCnt) {
           auto& type = actualTypes_[formalArgsCnt - 1];
@@ -285,28 +238,18 @@ bool SignatureBinder::tryBind(std::vector<Coercion>* coercionsPtr) {
     }
     const auto& formalArgSignature =
         i < formalArgsCnt ? formalArgs[i] : formalArgs.back();
-    Coercion* coercion = coercionsPtr ? coercionsPtr->data() + i : nullptr;
-    if (!resolveTypeVars(formalArgSignature, actualType, coercion)) {
+    if (!resolveTypeVars(formalArgSignature, actualType, coercions)) {
       return false;
     }
   }
 
-  if (coercionsPtr) {
-    auto& coercions = *coercionsPtr;
+  if (coercions) {
     // Phase 2: check for compatibility
     for (size_t i = 0; i < actualTypes_.size(); ++i) {
       const auto& formalArgSignature =
           i < formalArgsCnt ? formalArgs[i] : formalArgs.back();
-      const auto& actualType = actualTypes_[i];
-      if (!checkTypeVarsCoercions(
-              formalArgSignature, actualType, &coercions[i])) {
-        return false;
-      }
-      if (coercions[i]) {
-        continue;
-      }
       if (!SignatureBinderBase::tryBindWithCoercion(
-              formalArgSignature, actualType, coercions[i])) {
+              formalArgSignature, actualTypes_[i], (*coercions)[i])) {
         return false;
       }
     }
@@ -408,12 +351,15 @@ bool SignatureBinderBase::tryBind(
 
     const auto& varType = typeVariablesBindings_[variable.name()];
     VELOX_CHECK(varType, "Not expecting unbinded type variable");
-    if (coercion && !varType->equivalent(*actualType)) {
-      // for bind params only
-      *coercion = TypeCoercer::coercible(actualType, varType);
-      VELOX_CHECK(coercion, "Coercion have already been checked");
+
+    if (coercion) {
+      if (!varType->equivalent(*actualType)) {
+        *coercion = TypeCoercer::coercible(actualType, varType);
+        return coercion->type != nullptr;
+      }
+      return true;
     }
-    return true;
+    return varType->equivalent(*actualType);
   }
 
   // Type is not a variable.
