@@ -18,8 +18,8 @@
 
 namespace facebook::velox {
 
-CostT Coercion::overallCost(const std::vector<Coercion>& coercions) {
-  CostT cost = 0;
+Cost Coercion::overallCost(const std::vector<Coercion>& coercions) {
+  Cost cost = 0;
   for (const auto& coercion : coercions) {
     if (coercion.type != nullptr) {
       cost += coercion.cost;
@@ -73,7 +73,7 @@ Coercion TypeCoercer::coercible(
     return {};
   }
 
-  CostT cost = 0;
+  Cost cost = 0;
   for (size_t i = 0; i < fromType->size(); i++) {
     if (auto c = coercible(fromType->childAt(i), toType->childAt(i))) {
       cost += c.cost;

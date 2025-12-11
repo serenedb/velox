@@ -138,10 +138,6 @@ bool checkSignatureProperties(
 
 } // namespace
 
-bool SignatureBinder::tryBindWithCoercions(std::vector<Coercion>& coercions) {
-  return tryBind(&coercions);
-}
-
 // Traverse all types in signatures and deduces the least common type for each
 // type parameter. Recursion is needed to traverse complex types like Map<K, V>,
 // Array<Array<T>>, etc
@@ -415,7 +411,7 @@ bool SignatureBinderBase::tryBind(
   }
 
   bool needsCoercion = false;
-  int32_t totalCost = 0;
+  Cost totalCost = 0;
   std::vector<TypePtr> newParameters;
   newParameters.reserve(params.size());
 
@@ -453,7 +449,7 @@ bool SignatureBinderBase::tryBind(
                 coercion ? &childCoercion : nullptr)) {
           return false;
         }
-        if (coercion && childCoercion.type) {
+        if (childCoercion.type) {
           needsCoercion = true;
           totalCost += childCoercion.cost;
           newParameters.emplace_back(childCoercion.type);
@@ -465,7 +461,7 @@ bool SignatureBinderBase::tryBind(
     }
   }
 
-  if (coercion && needsCoercion) {
+  if (needsCoercion) {
     std::vector<TypeParameter> typeParameters;
     typeParameters.reserve(newParameters.size());
     for (auto i = 0; i < newParameters.size(); ++i) {

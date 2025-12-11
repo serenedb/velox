@@ -105,9 +105,6 @@ class SignatureBinder : private SignatureBinderBase {
   /// coercion is required for that argument.
   bool tryBind(std::vector<Coercion>* coercions = nullptr);
 
-  /// Wrapper for 'tryBind'
-  bool tryBindWithCoercions(std::vector<Coercion>& coercions);
-
   /// Returns concrete return type or nullptr if couldn't fully resolve.
   TypePtr tryResolveReturnType() {
     return tryResolveType(signature_.returnType());

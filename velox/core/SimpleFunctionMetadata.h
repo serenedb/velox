@@ -16,16 +16,15 @@
 #pragma once
 
 #include <folly/Likely.h>
-#include <velox/type/Cost.h>
 #include <optional>
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Status.h"
-#include "velox/core/CoreTypeSystem.h"
 #include "velox/core/Metaprogramming.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/SignatureBinder.h"
+#include "velox/type/Cost.h"
 #include "velox/type/SimpleFunctionApi.h"
 #include "velox/type/Type.h"
 

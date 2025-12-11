@@ -19,12 +19,12 @@
 
 namespace facebook::velox {
 
-using CostT = int32_t;
+using Cost = int32_t;
 
 // This assumes we wont have signature longer than 1M argument.
-constexpr CostT kRankCostStep = 1'000'000;
+inline constexpr Cost kRankCostStep = 1'000'000;
 
 // This assumes we wont have more ranks than 10.
-constexpr CostT kMinCoercionCost = 10 * kRankCostStep;
+inline constexpr Cost kMinCoercionCost = 10 * kRankCostStep;
 
 } // namespace facebook::velox
