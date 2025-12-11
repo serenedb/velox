@@ -149,10 +149,9 @@ bool SignatureBinder::tryBind() {
 // Traverse all types in signatures and deduces the least common type for each
 // type parameter. Recursion is needed to traverse complex types like Map<K, V>,
 // Array<Array<T>>, etc
-bool SignatureBinderBase::resolveTypeVars(
+bool SignatureBinder::coercibleToTypeVars(
     const TypeSignature& signature,
-    const TypePtr& actualType,
-    bool allowCoercions) {
+    const TypePtr& actualType) {
   const auto& varName = signature.baseName();
   if (auto varIt = variables().find(varName); varIt != variables().end()) {
     const auto& variableSignature = varIt->second;
@@ -167,9 +166,7 @@ bool SignatureBinderBase::resolveTypeVars(
     if (varType->equivalent(*actualType)) {
       return true;
     }
-    if (!allowCoercions) {
-      return actualType->equivalent(*UNKNOWN());
-    }
+
     if (TypeCoercer::coercible(actualType, varType)) {
       return true;
     }
@@ -196,7 +193,7 @@ bool SignatureBinderBase::resolveTypeVars(
         ? signatureParams[j]
         : signatureParams.back();
     if (actualParam.kind == TypeParameterKind::kType) {
-      if (!resolveTypeVars(signatureParam, actualParam.type, allowCoercions)) {
+      if (!coercibleToTypeVars(signatureParam, actualParam.type)) {
         return false;
       }
     }
@@ -234,16 +231,17 @@ bool SignatureBinder::tryBind(std::vector<Coercion>* coercions) {
     }
   }
 
-  // Phase 1: Calculate certain types for each type var
   for (size_t i = 0; i < actualTypes_.size(); ++i) {
     const auto& actualType = actualTypes_[i];
     if (!actualType) {
       return false;
     }
-    const auto& formalArgSignature =
-        i < formalArgsCnt ? formalArgs[i] : formalArgs.back();
-    if (!resolveTypeVars(formalArgSignature, actualType, coercions)) {
-      return false;
+    if (coercions) {
+      const auto& formalArgSignature =
+          i < formalArgsCnt ? formalArgs[i] : formalArgs.back();
+      if (!coercibleToTypeVars(formalArgSignature, actualType)) {
+        return false;
+      }
     }
   }
 
@@ -335,8 +333,10 @@ bool SignatureBinderBase::tryBind(
     const auto& variable = variables().at(baseName);
     VELOX_CHECK(variable.isTypeParameter(), "Not expecting integer variable");
 
-    const auto& varType = typeVariablesBindings_[variable.name()];
-    VELOX_CHECK(varType, "Not expecting unbinded type variable");
+    auto& varType = typeVariablesBindings_[variable.name()];
+    if (!varType) {
+      varType = actualType;
+    }
 
     if (coercion) {
       if (!varType->equivalent(*actualType)) {

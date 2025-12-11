@@ -37,7 +37,7 @@ class SignatureBinderBase {
   bool tryBind(
       const exec::TypeSignature& typeSignature,
       const TypePtr& actualType,
-      Coercion* coercion);
+      Coercion* coercion = nullptr);
 
   // Return the variables of the signature.
   auto& variables() const {
@@ -59,11 +59,6 @@ class SignatureBinderBase {
   /// Record concrete values that are bound to VarcharEnumParameter variables.
   std::unordered_map<std::string, VarcharEnumParameter>
       varcharEnumVariablesBindings_;
-
-  bool resolveTypeVars(
-      const TypeSignature& signature,
-      const TypePtr& actualType,
-      bool allowCoercions);
 
  private:
   /// If the integer parameter is set, then it must match with value.
@@ -178,6 +173,10 @@ class SignatureBinder : private SignatureBinderBase {
           varcharEnumVariablesBindings);
 
  private:
+  bool coercibleToTypeVars(
+      const TypeSignature& signature,
+      const TypePtr& actualType);
+
   bool tryBind(std::vector<Coercion>* coercions);
 
   const std::vector<TypePtr>& actualTypes_;
