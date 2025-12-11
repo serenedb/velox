@@ -15,6 +15,7 @@
  */
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <algorithm>
 #include <optional>
 #include <unordered_map>
@@ -349,10 +350,7 @@ bool SignatureBinderBase::tryBind(
 
   // Type is not a variable.
   auto typeName = boost::algorithm::to_upper_copy(baseName);
-  std::string actualTypeName = actualType->name();
-  boost::algorithm::to_upper(actualTypeName);
-
-  if (typeName != actualTypeName) {
+  if (!boost::algorithm::iequals(typeName, actualType->name())) {
     if (coercion) {
       // TODO: It's better to postpone this in case of Unknown type because of
       // processing params for complex types

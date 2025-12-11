@@ -43,7 +43,7 @@ Coercion TypeCoercer::coerceTypeBase(
   }
 
   if (fromType == UNKNOWN()) {
-    // Cast Unknwon to complex type is not supported yet
+    // Cast Unknown to complex type is not supported yet
     return Coercion{getType(toTypeName, {}), 1};
   }
 
@@ -69,7 +69,7 @@ Coercion TypeCoercer::coercible(
 
   if (fromType->name() != toType->name() ||
       fromType->size() != toType->size()) {
-    return Coercion{nullptr};
+    return {};
   }
 
   int32_t cost = 0;
@@ -77,7 +77,7 @@ Coercion TypeCoercer::coercible(
     if (auto c = coercible(fromType->childAt(i), toType->childAt(i))) {
       cost += c.cost;
     } else {
-      return Coercion(nullptr);
+      return {};
     }
   }
 
