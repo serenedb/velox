@@ -227,7 +227,7 @@ SimpleFunctionRegistry::resolveFunction(
               // example, let's assume function 'foo' has two signatures:
               // 1. Integer -> Integer
               // 2. Generic<T> -> Intger
-              // Then binding 'foo'to NULL (of type Unknown) should pick the
+              // Then binding 'foo' to NULL (of type Unknown) should pick the
               // second signature.
               const auto currentPriority =
                   m.priority() + Coercion::overallCost(requiredCoercions);

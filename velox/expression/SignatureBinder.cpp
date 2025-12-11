@@ -405,7 +405,7 @@ bool SignatureBinderBase::tryBind(
         return true;
       }
     } else {
-      return tryBind(typeParam, actualChildType, nullptr);
+      return tryBind(typeParam, actualChildType);
     }
   }
 
