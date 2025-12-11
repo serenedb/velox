@@ -166,7 +166,7 @@ bool SignatureBinder::resolveTypeVars(
       return true;
     }
     if (!allowCoercions) {
-      return false;
+      return actualType->equivalent(*UNKNOWN());
     }
     if (TypeCoercer::coercible(actualType, varType)) {
       return true;
@@ -253,7 +253,7 @@ bool SignatureBinder::tryBind(std::vector<Coercion>* coercions) {
         i < formalArgsCnt ? formalArgs[i] : formalArgs.back();
     Coercion* coercion = coercions ? &(*coercions)[i] : nullptr;
     if (!SignatureBinderBase::tryBind(
-            formalArgSignature, actualTypes_[i], &(*coercions)[i])) {
+            formalArgSignature, actualTypes_[i], coercion)) {
       return false;
     }
   }
@@ -351,13 +351,15 @@ bool SignatureBinderBase::tryBind(
   auto actualTypeName =
       boost::algorithm::to_upper_copy(std::string(actualType->name()));
 
-  if (typeName != actualTypeName && coercion) {
-    // TODO: It's better to postpone this in case of Unknown type because of
-    // processing params for complex types
-    if (auto availableCoercion =
-            TypeCoercer::coerceTypeBase(actualType, typeName)) {
-      *coercion = availableCoercion;
-      return true;
+  if (typeName != actualTypeName) {
+    if (coercion) {
+      // TODO: It's better to postpone this in case of Unknown type because of
+      // processing params for complex types
+      if (auto availableCoercion =
+              TypeCoercer::coerceTypeBase(actualType, typeName)) {
+        *coercion = availableCoercion;
+        return true;
+      }
     }
     return false;
   }

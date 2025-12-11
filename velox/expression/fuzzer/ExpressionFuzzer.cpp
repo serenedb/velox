@@ -53,12 +53,13 @@ class FullSignatureBinder : public SignatureBinderBase {
 
     for (auto i = 0; i < argTypes.size(); ++i) {
       if (!SignatureBinderBase::tryBind(
-              signature_.argumentTypes()[i], argTypes[i])) {
+              signature_.argumentTypes()[i], argTypes[i], nullptr)) {
         return;
       }
     }
 
-    if (!SignatureBinderBase::tryBind(signature_.returnType(), returnType)) {
+    if (!SignatureBinderBase::tryBind(
+            signature_.returnType(), returnType, nullptr)) {
       return;
     }
 
