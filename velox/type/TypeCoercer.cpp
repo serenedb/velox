@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 #include "velox/type/TypeCoercer.h"
+#include "velox/type/Cost.h"
 
 namespace facebook::velox {
 
-int64_t Coercion::overallCost(const std::vector<Coercion>& coercions) {
-  int64_t cost = 0;
+CostT Coercion::overallCost(const std::vector<Coercion>& coercions) {
+  CostT cost = 0;
   for (const auto& coercion : coercions) {
     if (coercion.type != nullptr) {
       cost += coercion.cost;
@@ -44,7 +45,7 @@ Coercion TypeCoercer::coerceTypeBase(
 
   if (fromType == UNKNOWN()) {
     // Cast Unknown to complex type is not supported yet
-    return Coercion{getType(toTypeName, {}), 1};
+    return Coercion{getType(toTypeName, {}), kMinCoercionCost};
   }
 
   auto it = kAllowedCoercions.find({fromType->name(), toTypeName});
@@ -60,7 +61,7 @@ Coercion TypeCoercer::coercible(
     const TypePtr& fromType,
     const TypePtr& toType) {
   if (fromType == UNKNOWN()) {
-    return Coercion{toType, 1};
+    return Coercion{toType, kMinCoercionCost};
   }
 
   if (fromType->size() == 0) {
@@ -72,7 +73,7 @@ Coercion TypeCoercer::coercible(
     return {};
   }
 
-  int32_t cost = 0;
+  CostT cost = 0;
   for (size_t i = 0; i < fromType->size(); i++) {
     if (auto c = coercible(fromType->childAt(i), toType->childAt(i))) {
       cost += c.cost;

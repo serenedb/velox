@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include "velox/type/Cost.h"
 #include "velox/type/Type.h"
 
 namespace facebook::velox {
@@ -22,7 +23,7 @@ namespace facebook::velox {
 /// Type coercion necessary to bind a type to a signature.
 struct Coercion {
   TypePtr type;
-  int32_t cost{0};
+  CostT cost{0};
 
   std::string toString() const {
     if (type == nullptr) {
@@ -42,7 +43,7 @@ struct Coercion {
   }
 
   /// Returns overall cost of a list of coercions by adding up individual costs.
-  static int64_t overallCost(const std::vector<Coercion>& coercions);
+  static CostT overallCost(const std::vector<Coercion>& coercions);
 
   /// Returns an index of the lowest cost coercion in 'candidates' or nullptr if
   /// 'candidates' is empty or there is a tie.

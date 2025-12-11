@@ -16,6 +16,7 @@
 #pragma once
 
 #include <folly/Likely.h>
+#include <velox/type/Cost.h>
 #include <optional>
 
 #include "velox/common/base/Exceptions.h"
@@ -165,8 +166,7 @@ struct TypeAnalysisResults {
     }
 
     uint32_t computePriority() {
-      // This assumes we wont have signature longer than 1M argument.
-      return getRank() * 1000000 - concreteCount;
+      return getRank() * kRankCostStep - concreteCount;
     }
   } stats;
 

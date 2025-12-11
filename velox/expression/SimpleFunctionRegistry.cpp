@@ -223,7 +223,14 @@ SimpleFunctionRegistry::resolveFunction(
             VELOX_CHECK_NOT_NULL(resultType);
 
             if (physicalTypeMatches(resultType, m.resultPhysicalType())) {
-              const auto currentPriority = m.priority();
+              // Coercion cost is required to match more suitable signature. For
+              // example, let's assume function 'foo' has two signatures:
+              // 1. Integer -> Integer
+              // 2. Generic<T> -> Intger
+              // Then binding 'foo'to NULL (of type Unknown) should pick the
+              // second signature.
+              const auto currentPriority =
+                  m.priority() + Coercion::overallCost(requiredCoercions);
 
               if (!priority.has_value() || currentPriority < priority.value()) {
                 candidates.clear();
