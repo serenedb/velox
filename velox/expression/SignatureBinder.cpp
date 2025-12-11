@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 #include <algorithm>
 #include <optional>
 #include <unordered_map>
@@ -348,8 +349,8 @@ bool SignatureBinderBase::tryBind(
 
   // Type is not a variable.
   auto typeName = boost::algorithm::to_upper_copy(baseName);
-  auto actualTypeName =
-      boost::algorithm::to_upper_copy(std::string(actualType->name()));
+  std::string actualTypeName = actualType->name();
+  boost::algorithm::to_upper(actualTypeName);
 
   if (typeName != actualTypeName) {
     if (coercion) {
