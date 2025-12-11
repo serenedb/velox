@@ -98,13 +98,14 @@ class SignatureBinder : private SignatureBinderBase {
       : SignatureBinderBase{signature}, actualTypes_{actualTypes} {}
 
   /// Returns true if successfully resolved all generic type names.
-  bool tryBind();
-
-  /// Like 'tryBind', but allows implicit type conversion if actualTypes don't
+  /// Allows implicit type conversion if actualTypes don't
   /// match the signature exactly.
   /// @param coercions Type coercions necessary to bind actualTypes to the
   /// signature. There is one entry per argument. Coercion.type is null if no
   /// coercion is required for that argument.
+  bool tryBind(std::vector<Coercion>* coercions = nullptr);
+
+  /// Wrapper for 'tryBind'
   bool tryBindWithCoercions(std::vector<Coercion>& coercions);
 
   /// Returns concrete return type or nullptr if couldn't fully resolve.
@@ -176,8 +177,6 @@ class SignatureBinder : private SignatureBinderBase {
   bool coercibleToTypeVars(
       const TypeSignature& signature,
       const TypePtr& actualType);
-
-  bool tryBind(std::vector<Coercion>* coercions);
 
   const std::vector<TypePtr>& actualTypes_;
 };

@@ -142,10 +142,6 @@ bool SignatureBinder::tryBindWithCoercions(std::vector<Coercion>& coercions) {
   return tryBind(&coercions);
 }
 
-bool SignatureBinder::tryBind() {
-  return tryBind(nullptr);
-}
-
 // Traverse all types in signatures and deduces the least common type for each
 // type parameter. Recursion is needed to traverse complex types like Map<K, V>,
 // Array<Array<T>>, etc
@@ -187,10 +183,10 @@ bool SignatureBinder::coercibleToTypeVars(
     return true;
   }
 
-  for (size_t j = 0; j < actualParams.size(); ++j) {
-    const auto& actualParam = actualParams[j];
-    const auto& signatureParam = j < signatureParams.size()
-        ? signatureParams[j]
+  for (size_t i = 0; i < actualParams.size(); ++i) {
+    const auto& actualParam = actualParams[i];
+    const auto& signatureParam = i < signatureParams.size()
+        ? signatureParams[i]
         : signatureParams.back();
     if (actualParam.kind == TypeParameterKind::kType) {
       if (!coercibleToTypeVars(signatureParam, actualParam.type)) {
