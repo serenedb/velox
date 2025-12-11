@@ -442,7 +442,10 @@ bool SignatureBinderBase::tryBind(
           return false;
         }
         Coercion childCoercion;
-        if (!tryBind(params[i], actualParameter.type, &childCoercion)) {
+        if (!tryBind(
+                params[i],
+                actualParameter.type,
+                coercion ? &childCoercion : nullptr)) {
           return false;
         }
         if (coercion && childCoercion.type) {
