@@ -338,15 +338,18 @@ bool SignatureBinderBase::tryBind(
 
     auto& varType = typeVariablesBindings_[variable.name()];
     if (!varType) {
+      if (!checkSignatureProperties(variable, actualType)) {
+        return false;
+      }
       varType = actualType;
     }
 
     if (coercion) {
-      if (!varType->equivalent(*actualType)) {
-        *coercion = TypeCoercer::coercible(actualType, varType);
-        return coercion->type != nullptr;
+      if (varType->equivalent(*actualType)) {
+        return true;
       }
-      return true;
+      *coercion = TypeCoercer::coercible(actualType, varType);
+      return coercion->type != nullptr;
     }
     return varType->equivalent(*actualType);
   }
