@@ -227,29 +227,36 @@ bool SignatureBinder::tryBind(std::vector<Coercion>* coercions) {
     }
   }
 
+  if (!coercions) {
+    for (size_t i = 0; i < formalArgsCnt && i < actualTypes_.size(); ++i) {
+      const auto& actualType = actualTypes_[i];
+      if (!actualType ||
+          !SignatureBinderBase::tryBind(formalArgs[i], actualType)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Phase 1: find least common var types
   for (size_t i = 0; i < actualTypes_.size(); ++i) {
     const auto& actualType = actualTypes_[i];
     if (!actualType) {
       return false;
     }
-    if (coercions) {
-      const auto& formalArgSignature =
-          i < formalArgsCnt ? formalArgs[i] : formalArgs.back();
-      if (!coercibleToTypeVars(formalArgSignature, actualType)) {
-        return false;
-      }
+    const auto& formalArgSignature =
+        i < formalArgsCnt ? formalArgs[i] : formalArgs.back();
+    if (!coercibleToTypeVars(formalArgSignature, actualTypes_[i])) {
+      return false;
     }
   }
 
-  const auto bound = coercions ? actualTypes_.size()
-                               : std::min(actualTypes_.size(), formalArgsCnt);
-
-  for (size_t i = 0; i < bound; ++i) {
+  // Phase 2: check that bound types are coercible
+  for (size_t i = 0; i < actualTypes_.size(); ++i) {
     const auto& formalArgSignature =
         i < formalArgsCnt ? formalArgs[i] : formalArgs.back();
-    Coercion* coercion = coercions ? &(*coercions)[i] : nullptr;
     if (!SignatureBinderBase::tryBind(
-            formalArgSignature, actualTypes_[i], coercion)) {
+            formalArgSignature, actualTypes_[i], &(*coercions)[i])) {
       return false;
     }
   }
