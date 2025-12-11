@@ -147,7 +147,7 @@ bool SignatureBinder::tryBind() {
 // Traverse all types in signatures and deduces the least common type for each
 // type parameter. Recursion is needed to traverse complex types like Map<K, V>,
 // Array<Array<T>>, etc
-bool SignatureBinder::resolveTypeVars(
+bool SignatureBinderBase::resolveTypeVars(
     const TypeSignature& signature,
     const TypePtr& actualType,
     bool allowCoercions) {

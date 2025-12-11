@@ -60,6 +60,11 @@ class SignatureBinderBase {
   std::unordered_map<std::string, VarcharEnumParameter>
       varcharEnumVariablesBindings_;
 
+  bool resolveTypeVars(
+      const TypeSignature& signature,
+      const TypePtr& actualType,
+      bool allowCoercions);
+
  private:
   /// If the integer parameter is set, then it must match with value.
   /// Returns false if values do not match or the parameter does not exist.
@@ -174,10 +179,6 @@ class SignatureBinder : private SignatureBinderBase {
 
  private:
   bool tryBind(std::vector<Coercion>* coercions);
-  bool resolveTypeVars(
-      const TypeSignature& signature,
-      const TypePtr& actualType,
-      bool allowCoercions);
 
   const std::vector<TypePtr>& actualTypes_;
 };
