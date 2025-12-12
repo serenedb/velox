@@ -20,11 +20,11 @@
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Status.h"
-#include "velox/core/CoreTypeSystem.h"
 #include "velox/core/Metaprogramming.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/expression/FunctionSignature.h"
 #include "velox/expression/SignatureBinder.h"
+#include "velox/type/Cost.h"
 #include "velox/type/SimpleFunctionApi.h"
 #include "velox/type/Type.h"
 
@@ -165,8 +165,7 @@ struct TypeAnalysisResults {
     }
 
     uint32_t computePriority() {
-      // This assumes we wont have signature longer than 1M argument.
-      return getRank() * 1000000 - concreteCount;
+      return getRank() * kRankCostStep - concreteCount;
     }
   } stats;
 

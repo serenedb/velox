@@ -187,14 +187,7 @@ SimpleFunctionRegistry::resolveFunction(
 
         std::vector<Coercion> requiredCoercions;
 
-        bool bound;
-        if (allowCoercion) {
-          bound = binder.tryBindWithCoercions(requiredCoercions);
-        } else {
-          bound = binder.tryBind();
-        }
-
-        if (bound) {
+        if (binder.tryBind(allowCoercion ? &requiredCoercions : nullptr)) {
           for (const auto& currentCandidate : functionEntry) {
             const auto& m = currentCandidate->getMetadata();
 
@@ -223,7 +216,14 @@ SimpleFunctionRegistry::resolveFunction(
             VELOX_CHECK_NOT_NULL(resultType);
 
             if (physicalTypeMatches(resultType, m.resultPhysicalType())) {
-              const auto currentPriority = m.priority();
+              // Coercion cost is required to match more suitable signature. For
+              // example, let's assume function has two signatures:
+              // 1. BIGINT -> BIGINT
+              // 2. Generic<T> -> BIGINT
+              // Then binding function to INTEGER should pick the
+              // second signature.
+              const auto currentPriority =
+                  m.priority() + Coercion::overallCost(requiredCoercions);
 
               if (!priority.has_value() || currentPriority < priority.value()) {
                 candidates.clear();
