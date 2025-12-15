@@ -111,11 +111,10 @@ bool checkNamedRowField(
     const TypeSignature& signature,
     const TypePtr& actualType,
     size_t idx) {
-  if (signature.rowFieldName().has_value() &&
-      (*signature.rowFieldName() != asRowType(actualType)->nameOf(idx))) {
-    return false;
+  if (!signature.rowFieldName()) {
+    return true;
   }
-  return true;
+  return *signature.rowFieldName() == asRowType(actualType)->nameOf(idx);
 }
 
 bool checkSignatureProperties(
@@ -135,10 +134,6 @@ bool checkSignatureProperties(
 
 } // namespace
 
-// Traverse all types in signatures and deduces the least common type for each
-// type parameter. Recursion is needed to traverse complex types like Map<K, V>,
-// Array<Array<T>>, etc
-// Returns false iff some type parameters cannot be bound.
 bool SignatureBinder::coercibleToTypeVars(
     const TypeSignature& signature,
     const TypePtr& actualType) {
@@ -195,7 +190,6 @@ bool SignatureBinder::tryBind(std::vector<Coercion>* coercions) {
   const auto formalArgsCnt = formalArgs.size();
 
   if (signature_.variableArity()) {
-    VELOX_DCHECK_GE(formalArgsCnt, 1);
     if (actualTypes_.size() < formalArgsCnt - 1) {
       return false;
     }
@@ -221,19 +215,19 @@ bool SignatureBinder::tryBind(std::vector<Coercion>* coercions) {
     return false;
   }
 
-  // Phase 1: find least common var types
-  for (size_t i = 0; coercions && i < actualTypes_.size(); ++i) {
-    const auto& formalArgSignature =
-        i < formalArgsCnt ? formalArgs[i] : formalArgs.back();
-    if (!coercibleToTypeVars(formalArgSignature, actualTypes_[i])) {
-      return false;
-    }
-  }
-
   size_t bindArgsCnt = actualTypes_.size();
   if (coercions) {
     coercions->clear();
     coercions->resize(bindArgsCnt);
+
+    // Phase 1: find least common var types
+    for (size_t i = 0; i < actualTypes_.size(); ++i) {
+      const auto& formalArgSignature =
+          i < formalArgsCnt ? formalArgs[i] : formalArgs.back();
+      if (!coercibleToTypeVars(formalArgSignature, actualTypes_[i])) {
+        return false;
+      }
+    }
   } else if (formalArgsCnt < bindArgsCnt) {
     bindArgsCnt = formalArgsCnt;
   }
@@ -338,7 +332,7 @@ bool SignatureBinderBase::tryBind(
       return varType->equivalent(*actualType);
     }
     *coercion = TypeCoercer::coercible(actualType, varType);
-    return static_cast<bool>(*coercion);
+    return coercion->isPossible();
   }
 
   const auto& params = typeSignature.parameters();
@@ -349,9 +343,9 @@ bool SignatureBinderBase::tryBind(
     if (!coercion || !params.empty()) {
       return false;
     }
-    // TODO: Handle coercion for complex types with parameters.
+    // TODO: Handle coercion from unknown to complex types with parameters.
     *coercion = TypeCoercer::coerceTypeBase(actualType, typeName);
-    return static_cast<bool>(*coercion);
+    return coercion->isPossible();
   }
 
   // Handle homogeneous row case: row(T, ...)
@@ -397,7 +391,7 @@ bool SignatureBinderBase::tryBind(
     return false;
   }
 
-  Cost totalCost = 0;
+  CallableCost totalCost = 0;
   std::vector<TypeParameter> newParameters;
   newParameters.reserve(params.size());
 
@@ -441,8 +435,7 @@ bool SignatureBinderBase::tryBind(
           totalCost += parameterCoercion.cost;
           continue;
         }
-        break;
-      }
+      } break;
     }
     if (coercion) {
       newParameters.emplace_back(actualParameter);

@@ -171,6 +171,10 @@ class SignatureBinder : private SignatureBinderBase {
           varcharEnumVariablesBindings);
 
  private:
+  // Traverse all types in signatures and deduce the least common type for each
+  // type parameter. Recursion is needed to traverse complex types like
+  // Array<Array<T>>, etc.
+  // Returns false iff some type parameters cannot be bound.
   bool coercibleToTypeVars(
       const TypeSignature& signature,
       const TypePtr& actualType);

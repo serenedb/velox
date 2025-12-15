@@ -18,17 +18,37 @@
 
 namespace facebook::velox {
 
-Cost Coercion::overallCost(const std::vector<Coercion>& coercions) {
-  Cost cost = 0;
+CallableCost Coercion::overallCost(const std::vector<Coercion>& coercions) {
+  CallableCost cost = 0;
   for (const auto& coercion : coercions) {
+    VELOX_DCHECK(coercion);
     cost += coercion.cost;
   }
   return cost;
 }
 
+void Coercion::convert(
+    const std::vector<Coercion>& from,
+    std::vector<TypePtr>* to) {
+  if (!to) {
+    return;
+  }
+  to->clear();
+  to->reserve(from.size());
+  for (const auto& coercion : from) {
+    VELOX_DCHECK(coercion);
+    to->push_back(coercion.type);
+  }
+}
+
 namespace {
 
 facebook::velox::AllowedCoercions kAllowedCoercions;
+
+// This is cost of CAST from UNKNOWN type to any other type.
+// This is the lowest for any implicit CAST.
+// Any other implicit CAST will have cost higher than this.
+constexpr CallableCost kNullCoercionCost = 1;
 
 } // namespace
 
@@ -42,7 +62,7 @@ Coercion TypeCoercer::coerceTypeBase(
 
   if (fromType == UNKNOWN()) {
     // Cast unknown to complex type in function is not supported yet
-    return {getType(toTypeName, {}), kMinCoercionCost};
+    return {getType(toTypeName, {}), kNullCoercionCost};
   }
 
   auto it = kAllowedCoercions.find({fromType->name(), toTypeName});
@@ -50,7 +70,7 @@ Coercion TypeCoercer::coerceTypeBase(
     return it->second;
   }
 
-  return {{}, -1};
+  return {{}, kImpossibleCoercionCost};
 }
 
 // static
@@ -62,11 +82,11 @@ Coercion TypeCoercer::coercible(
   }
 
   if (fromType == UNKNOWN()) {
-    return {toType, kMinCoercionCost};
+    return {toType, kNullCoercionCost};
   }
 
   if (fromType->size() != toType->size()) {
-    return {{}, -1};
+    return {{}, kImpossibleCoercionCost};
   }
 
   if (fromType->size() == 0) {
@@ -74,15 +94,15 @@ Coercion TypeCoercer::coercible(
   }
 
   if (fromType->name() != toType->name()) {
-    return {{}, -1};
+    return {{}, kImpossibleCoercionCost};
   }
 
-  Cost cost = 0;
+  CallableCost cost = 0;
   for (size_t i = 0; i < fromType->size(); i++) {
     if (auto c = coercible(fromType->childAt(i), toType->childAt(i))) {
       cost += c.cost;
     } else {
-      return {{}, -1};
+      return {{}, kImpossibleCoercionCost};
     }
   }
 

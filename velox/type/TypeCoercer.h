@@ -20,14 +20,25 @@
 
 namespace facebook::velox {
 
-/// Type coercion necessary to bind a type to a signature.
+using CallableCost = uint64_t;
+
+// This indicates that coercion is not possible.
+// In other words, it means we didn't find a valid implicit CAST,
+// so the function signature won't match.
+inline constexpr CallableCost kImpossibleCoercionCost =
+    std::numeric_limits<CallableCost>::max();
+
+/// Optional type coercion to bind a type to a signature.
+/// If coercion is not possible, 'type' is nullptr
+///  and 'cost' is kImpossibleCoercionCost.
+/// If no coercion is necessary, 'type' is nullptr and 'cost' is zero.
+/// Otherwise, 'type' is the resulting type after coercion
+///  and 'cost' is greater than zero.
 struct Coercion {
   /// Resulting type after coercion.
   /// If no coercion is necessary or possible, 'type' is nullptr.
   TypePtr type;
-  /// Cost of the coercion. Zero means no coercion is necessary.
-  /// Negative cost means coercion is needed but not possible.
-  Cost cost{0};
+  CallableCost cost = 0;
 
   std::string toString() const {
     if (type == nullptr) {
@@ -37,43 +48,25 @@ struct Coercion {
     return fmt::format("{} ({})", type->toString(), cost);
   }
 
+  /// True if coercion is possible (including no coercion needed).
   /// False if coercion is needed but not possible.
+  bool isPossible() const {
+    return cost != kImpossibleCoercionCost;
+  }
+
   explicit operator bool() const {
-    return cost >= 0;
+    return isPossible();
   }
 
   /// Returns overall cost of a list of coercions by adding up individual costs.
-  static Cost overallCost(const std::vector<Coercion>& coercions);
+  /// Coercions must be possible (including no coercion needed).
+  static CallableCost overallCost(const std::vector<Coercion>& coercions);
 
-  /// Returns an index of the lowest cost coercion in 'candidates' or nullptr if
-  /// 'candidates' is empty or there is a tie.
-  template <typename T>
-  static std::optional<size_t> pickLowestCost(
-      const std::vector<std::pair<std::vector<Coercion>, T>>& candidates) {
-    if (candidates.empty()) {
-      return std::nullopt;
-    }
-
-    if (candidates.size() == 1) {
-      return 0;
-    }
-
-    std::vector<std::pair<size_t, int64_t>> costs;
-    costs.reserve(candidates.size());
-    for (auto i = 0; i < candidates.size(); ++i) {
-      costs.emplace_back(i, overallCost(candidates[i].first));
-    }
-
-    std::sort(costs.begin(), costs.end(), [](const auto& a, const auto& b) {
-      return a.second < b.second;
-    });
-
-    if (costs[0].second < costs[1].second) {
-      return costs[0].first;
-    }
-
-    return std::nullopt;
-  }
+  /// Converts a list of valid Coercions into a list of TypePtr.
+  /// Coercions must be possible (including no coercion needed).
+  static void convert(
+      const std::vector<Coercion>& from,
+      std::vector<TypePtr>* to);
 };
 
 using AllowedCoercions =
@@ -84,8 +77,6 @@ class TypeCoercer {
   /// Checks if the base of 'fromType' can be implicitly converted to a type
   /// with the given name.
   /// Only types without type parameters are supported.
-  ///
-  /// @return "to" type and cost if conversion is possible.
   static Coercion coerceTypeBase(
       const TypePtr& fromType,
       const std::string& toTypeName);
