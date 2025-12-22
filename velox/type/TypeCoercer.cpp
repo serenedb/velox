@@ -47,29 +47,7 @@ namespace {
 // Any other implicit CAST will have cost higher than this.
 constexpr CallableCost kNullCoercionCost = 1;
 
-std::unordered_map<std::pair<std::string, std::string>, Coercion>
-allowedCoercions() {
-  std::unordered_map<std::pair<std::string, std::string>, Coercion> coercions;
-
-  auto add = [&](const TypePtr& from, const std::vector<TypePtr>& to) {
-    auto cost = kNullCoercionCost;
-    for (const auto& toType : to) {
-      coercions.emplace(
-          std::make_pair<std::string, std::string>(
-              from->name(), toType->name()),
-          Coercion{.type = toType, .cost = ++cost});
-    }
-  };
-
-  add(TINYINT(),
-      {SMALLINT(), INTEGER(), BIGINT(), HUGEINT(), REAL(), DOUBLE()});
-  add(SMALLINT(), {INTEGER(), BIGINT(), HUGEINT(), REAL(), DOUBLE()});
-  add(INTEGER(), {BIGINT(), HUGEINT(), DOUBLE()});
-  add(BIGINT(), {HUGEINT()});
-  add(REAL(), {DOUBLE()});
-
-  return coercions;
-}
+AllowedCoercions kAllowedCoercions;
 
 } // namespace
 
@@ -86,7 +64,6 @@ Coercion TypeCoercer::coerceTypeBase(
     return {getType(toTypeName, {}), kNullCoercionCost};
   }
 
-  static const auto kAllowedCoercions = allowedCoercions();
   auto it = kAllowedCoercions.find({fromType->name(), toTypeName});
   if (it != kAllowedCoercions.end()) {
     return it->second;
@@ -184,6 +161,11 @@ TypePtr TypeCoercer::leastCommonSuperType(const TypePtr& a, const TypePtr& b) {
   }
 
   return getType(a->name(), childTypes);
+}
+
+// static
+void TypeCoercer::registerCoercions(AllowedCoercions coercions) {
+  kAllowedCoercions = std::move(coercions);
 }
 
 } // namespace facebook::velox
