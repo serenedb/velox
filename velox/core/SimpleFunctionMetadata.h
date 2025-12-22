@@ -20,7 +20,6 @@
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/Status.h"
-#include "velox/core/CoreTypeSystem.h"
 #include "velox/core/Metaprogramming.h"
 #include "velox/core/QueryConfig.h"
 #include "velox/expression/FunctionSignature.h"
@@ -29,6 +28,12 @@
 #include "velox/type/Type.h"
 
 namespace facebook::velox::core {
+
+// This assumes we wont have signature longer than 1M argument.
+inline constexpr CallableCost kMaxFunctionArgs = 1'000'000;
+
+// This assumes we wont have function rank number greater than 4.
+inline constexpr CallableCost kMaxFunctionRank = 4;
 
 // Most UDFs are deterministic, hence this default value.
 template <class T, class = void>
@@ -156,7 +161,7 @@ struct TypeAnalysisResults {
     // in this case (1) is picked.
     // e.g: (Any, int) will be picked before (Any, Any)
     // e.g: Variadic<Array<Any>> is picked before Variadic<Any>.
-    uint32_t getRank() {
+    CallableCost getRank() const {
       if (!hasGeneric && !hasVariadic) {
         return 1;
       }
@@ -179,18 +184,20 @@ struct TypeAnalysisResults {
       VELOX_UNREACHABLE("unreachable");
     }
 
-    uint32_t computePriority() {
-      // This assumes we wont have signature longer than 1M argument.
-      return getRank() * 1000000 - concreteCount;
+    CallableCost computePriority() const {
+      const CallableCost rank = getRank();
+      VELOX_DCHECK_LE(rank, kMaxFunctionRank);
+      VELOX_DCHECK_LE(concreteCount, kMaxFunctionArgs);
+      return rank * kMaxFunctionArgs - concreteCount;
     }
   } stats;
 
   void addVariable(exec::SignatureVariable&& variable) {
-    if (!variablesInformation.count(variable.name())) {
-      variablesInformation.emplace(variable.name(), variable);
-    } else {
+    auto [it, emplaced] =
+        variablesInformation.try_emplace(variable.name(), variable);
+    if (!emplaced) {
       VELOX_CHECK(
-          variable == variablesInformation.at(variable.name()),
+          variable == it->second,
           "Cant assign different properties to the same variable {}",
           variable.name());
     }
@@ -456,7 +463,7 @@ class ISimpleFunctionMetadata {
   // Return the owner of the function. This is used for logging and
   // attribution.
   virtual std::string_view owner() const = 0;
-  virtual uint32_t priority() const = 0;
+  virtual CallableCost priority() const = 0;
   virtual const std::shared_ptr<exec::FunctionSignature> signature() const = 0;
   virtual const TypePtr& resultPhysicalType() const = 0;
   virtual const std::vector<TypePtr>& argPhysicalTypes() const = 0;
@@ -551,7 +558,7 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
     return CreateType<return_type>::create(signature());
   }
 
-  uint32_t priority() const override {
+  CallableCost priority() const override {
     return priority_;
   }
 
@@ -715,7 +722,7 @@ class SimpleFunctionMetadata : public ISimpleFunctionMetadata {
 
   const bool defaultNullBehavior_;
   exec::FunctionSignaturePtr signature_;
-  uint32_t priority_;
+  CallableCost priority_;
   TypePtr resultPhysicalType_;
   std::vector<TypePtr> argPhysicalTypes_;
 };
