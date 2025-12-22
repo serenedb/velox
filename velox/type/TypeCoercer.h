@@ -68,6 +68,9 @@ struct Coercion {
       std::vector<TypePtr>* to);
 };
 
+using AllowedCoercions =
+    std::unordered_map<std::pair<std::string, std::string>, Coercion>;
+
 class TypeCoercer {
  public:
   /// Checks if the base of 'fromType' can be implicitly converted to a type
@@ -89,6 +92,11 @@ class TypeCoercer {
   /// ROW has empty field names for any positions where the corresponding field
   /// names do not match.
   static TypePtr leastCommonSuperType(const TypePtr& a, const TypePtr& b);
+
+  /// Replaces the entire coercions map with a new one.
+  ///
+  /// @param coercions Map of coercions to set.
+  static void registerCoercions(AllowedCoercions coercions);
 };
 
 } // namespace facebook::velox
