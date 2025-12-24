@@ -1018,10 +1018,7 @@ void HashTable<ignoreNullKeys>::parallelJoinBuild() {
     buildPartitionBounds_[i] =
         bits::roundUp(((sizeMask_ + 1) / numPartitions) * i, kBucketSize);
     // Bounds must always be positive
-    VELOX_CHECK_GE(
-        buildPartitionBounds_[i],
-        0,
-        "Turn on VELOX_ENABLE_INT64_BUILD_PARTITION_BOUND to avoid integer overflow in buildPartitionBounds_");
+    VELOX_DCHECK_GE(buildPartitionBounds_[i], 0);
   }
   buildPartitionBounds_.back() = sizeMask_ + 1;
   std::vector<std::shared_ptr<AsyncSource<bool>>> partitionSteps;
