@@ -36,8 +36,12 @@ class SfmSketchTypeFactory : public CustomTypeFactory {
 
   AbstractInputGeneratorPtr getInputGenerator(
       const InputGeneratorConfig& config) const override {
+#ifdef VELOX_ENABLE_FUZZER
     return std::make_shared<fuzzer::SfmSketchInputGenerator>(
         config.seed_, config.nullRatio_, config.pool_);
+#else
+    VELOX_NYI("Fuzzer support is not enabled");
+#endif
   }
 };
 } // namespace

@@ -272,12 +272,16 @@ class IPAddressTypeFactory : public CustomTypeFactory {
 
   AbstractInputGeneratorPtr getInputGenerator(
       const InputGeneratorConfig& config) const override {
+#ifdef VELOX_ENABLE_FUZZER
     return std::make_shared<fuzzer::RangeConstrainedGenerator<int128_t>>(
         config.seed_,
         IPADDRESS(),
         config.nullRatio_,
         0,
         std::numeric_limits<int128_t>::max());
+#else
+    VELOX_NYI("Fuzzer support is not enabled");
+#endif
   }
 };
 } // namespace
