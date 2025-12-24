@@ -36,9 +36,13 @@ class TDigestTypeFactory : public CustomTypeFactory {
 
   AbstractInputGeneratorPtr getInputGenerator(
       const InputGeneratorConfig& config) const override {
+#ifdef VELOX_ENABLE_FUZZER
     fuzzer::FuzzerGenerator rng(config.seed_);
     return std::make_shared<fuzzer::TDigestInputGenerator>(
         config.seed_, TDIGEST(DOUBLE()), config.nullRatio_);
+#else
+    VELOX_NYI("Fuzzer support is not enabled");
+#endif
   }
 };
 } // namespace

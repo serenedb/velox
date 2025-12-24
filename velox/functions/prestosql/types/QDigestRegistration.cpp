@@ -36,6 +36,7 @@ class QDigestTypeFactory : public CustomTypeFactory {
 
   AbstractInputGeneratorPtr getInputGenerator(
       const InputGeneratorConfig& config) const override {
+#ifdef VELOX_ENABLE_FUZZER
     VELOX_USER_CHECK_NOT_NULL(config.type_, "QDigest Type must be provided");
     auto parameters = config.type_->parameters();
 
@@ -55,6 +56,9 @@ class QDigestTypeFactory : public CustomTypeFactory {
 
     return std::make_shared<fuzzer::QDigestInputGenerator>(
         config.seed_, QDIGEST(paramType), config.nullRatio_, paramType);
+#else
+    VELOX_NYI("Fuzzer support is not enabled");
+#endif
   }
 };
 } // namespace

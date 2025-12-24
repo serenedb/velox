@@ -736,4 +736,8 @@ if(VELOX_ENABLE_GEO)
   velox_resolve_dependency(geos)
 endif()
 
+if(${VELOX_BUILD_TESTING} OR ${VELOX_BUILD_TEST_UTILS} OR ${VELOX_BUILD_VECTOR_TEST_UTILS})
+  add_compile_definitions(VELOX_ENABLE_FUZZER)
+endif()
+
 add_subdirectory(velox)
