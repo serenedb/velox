@@ -36,9 +36,13 @@ class KHyperLogLogTypeFactory : public CustomTypeFactory {
 
   AbstractInputGeneratorPtr getInputGenerator(
       const InputGeneratorConfig& config) const override {
+#ifdef VELOX_ENABLE_FUZZER
     return std::static_pointer_cast<AbstractInputGenerator>(
         std::make_shared<fuzzer::KHyperLogLogInputGenerator>(
             config.seed_, config.nullRatio_, config.pool_));
+#else
+    VELOX_NYI("Fuzzer support is not enabled");
+#endif
   }
 };
 } // namespace

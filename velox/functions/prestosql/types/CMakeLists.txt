@@ -62,4 +62,6 @@ if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
 endif()
 
-add_subdirectory(fuzzer_utils)
+if(${VELOX_BUILD_TESTING} OR ${VELOX_BUILD_TEST_UTILS} OR ${VELOX_BUILD_VECTOR_TEST_UTILS})
+  add_subdirectory(fuzzer_utils)
+endif()
