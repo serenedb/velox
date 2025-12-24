@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#ifdef VELOX_ENABLE_FUZZER
 
 #include "velox/functions/prestosql/types/fuzzer_utils/HyperLogLogInputGenerator.h"
 
@@ -29,3 +30,4 @@ class P4HyperLogLogInputGenerator : public HyperLogLogInputGenerator {
 };
 
 } // namespace facebook::velox::fuzzer
+#endif

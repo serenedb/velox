@@ -199,6 +199,7 @@ class IPPrefixTypeFactory : public CustomTypeFactory {
 
   AbstractInputGeneratorPtr getInputGenerator(
       const InputGeneratorConfig& config) const override {
+#ifdef VELOX_ENABLE_FUZZER
     std::vector<std::unique_ptr<AbstractInputGenerator>> fields(2);
     fields[0] = std::make_unique<fuzzer::RangeConstrainedGenerator<int128_t>>(
         config.seed_, IPADDRESS(), 0, 0, std::numeric_limits<int128_t>::max());
@@ -206,6 +207,9 @@ class IPPrefixTypeFactory : public CustomTypeFactory {
         config.seed_, TINYINT(), 0, 0, 127);
     return std::make_shared<fuzzer::RandomInputGenerator<RowType>>(
         config.seed_, IPPREFIX(), std::move(fields), config.nullRatio_);
+#else
+    VELOX_NYI("Fuzzer support is not enabled");
+#endif
   }
 };
 } // namespace
