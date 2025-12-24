@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#ifdef VELOX_ENABLE_FUZZER
 
 #include <memory>
 
@@ -615,3 +616,4 @@ class QDigestInputGenerator : public AbstractInputGenerator {
   }
 };
 } // namespace facebook::velox::fuzzer
+#endif

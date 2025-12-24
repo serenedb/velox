@@ -38,6 +38,7 @@ class JsonTypeFactory : public CustomTypeFactory {
 
   AbstractInputGeneratorPtr getInputGenerator(
       const InputGeneratorConfig& config) const override {
+#ifdef VELOX_ENABLE_FUZZER
     static const std::vector<TypePtr> kScalarTypes{
         BOOLEAN(),
         TINYINT(),
@@ -58,6 +59,9 @@ class JsonTypeFactory : public CustomTypeFactory {
             fuzzer::randType(rng, kScalarTypes, 3),
             config.nullRatio_),
         false);
+#else
+    VELOX_NYI("Fuzzer support is not enabled");
+#endif
   }
 };
 } // namespace

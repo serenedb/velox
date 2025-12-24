@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#ifdef VELOX_ENABLE_FUZZER
 
 #include "velox/common/fuzzer/Utils.h"
 #include "velox/functions/prestosql/aggregates/HyperLogLogAggregate.h"
@@ -78,3 +79,4 @@ class HyperLogLogInputGenerator : public AbstractInputGenerator {
 #pragma GCC diagnostic pop
 
 } // namespace facebook::velox::fuzzer
+#endif

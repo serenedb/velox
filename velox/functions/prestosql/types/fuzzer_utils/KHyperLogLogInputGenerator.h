@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#ifdef VELOX_ENABLE_FUZZER
 
 #include "velox/type/Type.h"
 #include "velox/type/Variant.h"
@@ -48,3 +49,5 @@ class KHyperLogLogInputGenerator : public AbstractInputGenerator {
 #pragma GCC diagnostic pop
 
 } // namespace facebook::velox::fuzzer
+
+#endif
