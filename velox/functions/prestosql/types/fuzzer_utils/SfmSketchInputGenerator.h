@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#ifdef VELOX_ENABLE_FUZZER
 
 #include "velox/common/fuzzer/Utils.h"
 #include "velox/functions/lib/sfm/SfmSketch.h"
@@ -91,3 +92,4 @@ class SfmSketchInputGenerator : public AbstractInputGenerator {
 };
 
 } // namespace facebook::velox::fuzzer
+#endif
