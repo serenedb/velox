@@ -46,5 +46,5 @@ velox_add_library(
   ${FLEX_TypeParserScanner_OUTPUTS}
   ParserUtil.cpp
 )
-velox_include_directories(velox_type_parser PRIVATE ${PROJECT_BINARY_DIR} ${FLEX_INCLUDE_DIRS})
+velox_include_directories(velox_type_parser PRIVATE ${PROJECT_BINARY_DIR})
 velox_link_libraries(velox_type_parser velox_common_base)
