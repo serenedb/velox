@@ -48,6 +48,6 @@ velox_add_library(
 )
 velox_include_directories(
   velox_presto_type_parser
-  PRIVATE ${PROJECT_BINARY_DIR} ${FLEX_INCLUDE_DIRS}
+  PRIVATE ${PROJECT_BINARY_DIR}
 )
 velox_link_libraries(velox_presto_type_parser velox_common_base)

@@ -42,7 +42,6 @@ if(VELOX_MONO_LIBRARY)
 endif()
 
 include_directories(${PROJECT_BINARY_DIR})
-include_directories(${FLEX_INCLUDE_DIRS})
 velox_add_library(
   velox_signature_parser
   ${BISON_SignatureParser_OUTPUTS}
