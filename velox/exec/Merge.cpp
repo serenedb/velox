@@ -490,7 +490,7 @@ void SourceStream::copyToOutput(RowVectorPtr& output) {
 }
 
 bool SourceStream::fetchMoreData(std::vector<ContinueFuture>& futures) {
-  ContinueFuture future;
+  auto future = ContinueFuture::makeEmpty();
   auto reason = source_->next(data_, &future);
   if (reason != BlockingReason::kNotBlocked) {
     needData_ = true;
@@ -658,10 +658,11 @@ void SpillMerger::readFromSpillFileStream(
     } else {
       VELOX_CHECK(future.valid());
       std::move(future)
-          .via(executor_)
-          .thenValue([this, mergeHolder, streamIdx](auto&&) {
-            readFromSpillFileStream(mergeHolder, streamIdx);
-          })
+          .thenValue(
+              executor_,
+              [this, mergeHolder, streamIdx](auto&&) {
+                readFromSpillFileStream(mergeHolder, streamIdx);
+              })
           .thenError(
               folly::tag_t<std::exception>{},
               [this, mergeHolder, streamIdx](const std::exception& e) {

@@ -15,6 +15,7 @@
 velox_add_library(velox_exception Exceptions.cpp VeloxException.cpp Exceptions.h)
 velox_link_libraries(
   velox_exception
+  PUBLIC yaclib
   PUBLIC velox_flag_definitions velox_process Folly::folly fmt::fmt gflags::gflags glog::glog
 )
 

@@ -53,7 +53,7 @@ class CallbackSink : public Operator {
  private:
   void close() override;
 
-  ContinueFuture future_;
+  ContinueFuture future_{ContinueFuture::makeEmpty()};
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
   std::function<BlockingReason(ContinueFuture*)> startedCb_;
   Consumer consumeCb_;

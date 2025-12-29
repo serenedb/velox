@@ -23,7 +23,7 @@
 namespace facebook::velox::common {
 
 void AdmissionController::accept(uint64_t resourceUnits) {
-  ContinueFuture future;
+  auto future = ContinueFuture::makeEmpty();
   uint64_t updatedValue = 0;
   VELOX_CHECK_LE(
       resourceUnits,

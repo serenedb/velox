@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include <folly/futures/Future.h>
-#include <folly/futures/Promise.h>
 #include <string>
 #include "velox/common/file/FileSystems.h"
 
@@ -55,7 +53,7 @@ class Profiler {
   static std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
   static tsan_atomic<bool> isSleeping_;
   static tsan_atomic<bool> shouldStop_;
-  static folly::Promise<bool> sleepPromise_;
+  static ContinuePromise sleepPromise_;
 
   // Directory where results are deposited. Results have unique names within
   // this.

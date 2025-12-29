@@ -198,7 +198,7 @@ RowVectorPtr TableWriter::getOutput() {
 
   if (!finishDataSink()) {
     blockingReason_ = BlockingReason::kYield;
-    blockingFuture_ = ContinueFuture{folly::Unit{}};
+    blockingFuture_ = yaclib::MakeFuture();
     return nullptr;
   }
 

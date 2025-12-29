@@ -22,7 +22,8 @@
 #include <folly/GLog.h>
 #include <folly/chrono/Hardware.h>
 #include <folly/container/F14Set.h>
-#include <folly/futures/SharedPromise.h>
+#include <yaclib/async/connect.hpp>
+#include <yaclib/async/shared_contract.hpp>
 
 #include "velox/common/base/BitUtil.h"
 #include "velox/common/base/CoalesceIo.h"
@@ -269,19 +270,15 @@ class AsyncDataCacheEntry {
   void release();
   void addReference();
 
-  // Moves the promise out of 'this'. Must be called inside the mutex of
-  // 'shard_'.
-  std::unique_ptr<folly::SharedPromise<bool>> movePromiseLocked() {
-    return std::move(promise_);
-  }
-
   // Returns a future that will be realized when a caller can retry getting
   // 'this'. Must be called inside the mutex of 'shard_'.
-  folly::SemiFuture<bool> getFutureLocked() {
-    if (promise_ == nullptr) {
-      promise_ = std::make_unique<folly::SharedPromise<bool>>();
+  ContinueFuture getFutureLocked() {
+    if (!promise_.Valid()) {
+      promise_ = yaclib::MakeSharedPromise();
     }
-    return promise_->getSemiFuture();
+    auto [f, p] = yaclib::MakeContract();
+    Connect(promise_, std::move(p));
+    return std::move(f);
   }
 
   // Holds an owning reference to the file number.
@@ -296,7 +293,7 @@ class AsyncDataCacheEntry {
   // page (kTinyDataSize).
   std::string tinyData_;
 
-  std::unique_ptr<folly::SharedPromise<bool>> promise_;
+  yaclib::SharedPromise<> promise_;
   int32_t size_{0};
 
   // Setting this from 0 to 1 or to kExclusive requires owning shard_->mutex_.
@@ -438,7 +435,7 @@ class CoalescedLoad {
   /// thread is in the process of doing this and 'wait' is not null, waits for
   /// the other thread to be done. If 'ssdSavable' is true, marks the loaded
   /// entries as ssdsavable.
-  bool loadOrFuture(folly::SemiFuture<bool>* wait, bool ssdSavable = true);
+  bool loadOrFuture(ContinueFuture* wait, bool ssdSavable = true);
 
   State state() const {
     std::lock_guard<std::mutex> l(mutex_);
@@ -474,7 +471,7 @@ class CoalescedLoad {
   State state_;
 
   // Allows waiting for load or cancellation.
-  std::unique_ptr<folly::SharedPromise<bool>> promise_;
+  yaclib::SharedPromise<> promise_;
 
   std::vector<RawFileCacheKey> keys_;
   std::vector<int32_t> sizes_;
@@ -565,10 +562,8 @@ class CacheShard {
       : cache_(cache), maxWriteRatio_(maxWriteRatio) {}
 
   /// See AsyncDataCache::findOrCreate.
-  CachePin findOrCreate(
-      RawFileCacheKey key,
-      uint64_t size,
-      folly::SemiFuture<bool>* readyFuture);
+  CachePin
+  findOrCreate(RawFileCacheKey key, uint64_t size, ContinueFuture* readyFuture);
 
   /// Marks the cache entry with given cache 'key' as immediate evictable.
   void makeEvictable(RawFileCacheKey key);
@@ -604,8 +599,7 @@ class CacheShard {
   /// Removes 'entry' from 'this'. Removes a possible promise from the entry
   /// inside the shard mutex and returns it so that it can be realized outside
   /// of the mutex.
-  std::unique_ptr<folly::SharedPromise<bool>> removeEntry(
-      AsyncDataCacheEntry* entry);
+  yaclib::SharedPromise<> removeEntry(AsyncDataCacheEntry* entry);
 
   /// Adds the stats of 'this' to 'stats'.
   void updateStats(CacheStats& stats);
@@ -786,7 +780,7 @@ class AsyncDataCache : public memory::Cache {
   CachePin findOrCreate(
       RawFileCacheKey key,
       uint64_t size,
-      folly::SemiFuture<bool>* waitFuture = nullptr);
+      ContinueFuture* waitFuture = nullptr);
 
   /// Marks the cache entry with given cache 'key' as immediate evictable.
   void makeEvictable(RawFileCacheKey key);

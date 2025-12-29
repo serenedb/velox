@@ -17,7 +17,6 @@
 #pragma once
 
 #include <folly/Executor.h>
-#include <folly/futures/Future.h>
 
 #include <vector>
 #include "velox/dwio/common/UnitLoader.h"
