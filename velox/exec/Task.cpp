@@ -38,6 +38,8 @@
 #include "velox/exec/TaskTraceWriter.h"
 #include "velox/exec/TraceUtil.h"
 
+#include <yaclib/async/when_any.hpp>
+
 using facebook::velox::common::testutil::TestValue;
 
 namespace facebook::velox::exec {
@@ -847,8 +849,7 @@ RowVectorPtr Task::next(ContinueFuture* future) {
   // drivers.
   const auto numDrivers = drivers_.size();
 
-  std::vector<ContinueFuture> futures;
-  futures.resize(numDrivers);
+  auto futures = ContinueFuture::makeVector(numDrivers);
 
   for (;;) {
     int runnableDrivers = 0;
@@ -910,13 +911,13 @@ RowVectorPtr Task::next(ContinueFuture* future) {
           // a barrier processing. We expect that the caller either resume the
           // processing by sending new splits with a new barrier request or
           // finish the task processing by sending no more split signal.
-          std::vector<ContinueFuture> notReadyFutures;
+          std::vector<ContinueFuture::Base> notReadyFutures;
           for (auto& continueFuture : futures) {
             if (!continueFuture.isReady()) {
-              notReadyFutures.emplace_back(std::move(continueFuture));
+              notReadyFutures.emplace_back(std::move(continueFuture).future);
             }
           }
-          *future = folly::collectAny(std::move(notReadyFutures)).unit();
+          *future = WhenAny(notReadyFutures.begin(), notReadyFutures.size());
         }
       }
       return nullptr;
@@ -2817,22 +2818,6 @@ void Task::onTaskCompletion() {
   }
 }
 
-ContinueFuture Task::stateChangeFuture(uint64_t maxWaitMicros) {
-  std::lock_guard<std::timed_mutex> l(mutex_);
-  // If 'this' is running, the future is realized on timeout or when
-  // this no longer is running.
-  if (not isRunningLocked()) {
-    return ContinueFuture();
-  }
-  auto [promise, future] = makeVeloxContinuePromiseContract(
-      fmt::format("Task::stateChangeFuture {}", taskId_));
-  stateChangePromises_.emplace_back(std::move(promise));
-  if (maxWaitMicros > 0) {
-    return std::move(future).within(std::chrono::microseconds(maxWaitMicros));
-  }
-  return std::move(future);
-}
-
 ContinueFuture Task::taskCompletionFuture() {
   std::lock_guard<std::timed_mutex> l(mutex_);
   // If 'this' is running, the future is realized on timeout or when
@@ -3656,10 +3641,9 @@ void Task::DriverBlockingState::setDriverFuture(
     blockingReason_ = blockingReason;
     blockStartUs_ = getCurrentTimeMicro();
   }
-  std::move(driverFuture)
-      .via(&folly::InlineExecutor::instance())
-      .thenValue(
-          [&, driverHolder = driver_->shared_from_this()](auto&& /* unused */) {
+  driverFuture =
+      std::move(driverFuture.future)
+          .ThenInline([&, driverHolder = driver_->shared_from_this()] {
             std::vector<std::unique_ptr<ContinuePromise>> promises;
             {
               std::lock_guard<std::mutex> l(mutex_);
@@ -3675,7 +3659,8 @@ void Task::DriverBlockingState::setDriverFuture(
             for (auto& promise : promises) {
               promise->setValue();
             }
-          })
+          });
+  std::move(driverFuture)
       .thenError(
           folly::tag_t<std::exception>{},
           [&, driverHolder = driver_->shared_from_this()](

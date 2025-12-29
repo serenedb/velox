@@ -223,7 +223,7 @@ class PartitionedOutput : public Operator {
   const std::unique_ptr<VectorSerde::Options> serdeOptions_;
 
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
-  ContinueFuture future_;
+  ContinueFuture future_{ContinueFuture::makeEmpty()};
   bool finished_{false};
   // Contains pointers to 'rowSize_' elements. 'sizePointers_[i]' contains a
   // pointer to 'rowSize_[i]'.

@@ -142,7 +142,7 @@ class TaskQueue {
   std::vector<ContinuePromise> producerUnblockPromises_;
   bool consumerBlocked_ = false;
   ContinuePromise consumerPromise_{ContinuePromise::makeEmpty()};
-  ContinueFuture consumerFuture_;
+  ContinueFuture consumerFuture_{ContinueFuture::makeEmpty()};
   bool closed_ = false;
 };
 

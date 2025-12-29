@@ -66,7 +66,7 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
     /// Number of bytes still buffered at the source.  Each element represent
     /// one page, and the consumer can choose to fetch a prefix of them
     /// according to the memory restriction.
-    const std::vector<int64_t> remainingBytes;
+    std::vector<int64_t> remainingBytes;
 
     std::string toString() const {
       return fmt::format(
@@ -81,7 +81,7 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
   /// within 'maxWait'. Returns a future that completes when producer responds
   /// either with 'data' or with a message indicating that all data has been
   /// already produced or data will take more time to produce.
-  virtual folly::SemiFuture<Response> request(
+  virtual VeloxFuture<Response> request(
       uint32_t maxBytes,
       std::chrono::microseconds maxWait) = 0;
 
@@ -89,7 +89,7 @@ class ExchangeSource : public std::enable_shared_from_this<ExchangeSource> {
   /// fetching any actual data (i.e. Response::bytes should be 0).  However for
   /// backward compatibility (e.g. communicating with coordinator), we allow
   /// small data (1MB) to be returned.
-  virtual folly::SemiFuture<Response> requestDataSizes(
+  virtual VeloxFuture<Response> requestDataSizes(
       std::chrono::microseconds maxWait) = 0;
 
   /// Notifies that the engine needs some time to process already received data

@@ -175,24 +175,26 @@ void BlockingState::setResume(std::shared_ptr<BlockingState> state) {
   VELOX_CHECK(!state->driver_->isOnThread());
   auto& exec = folly::QueuedImmediateExecutor::instance();
   std::move(state->future_)
-      .via(&exec)
-      .thenValue([state](auto&& /* unused */) {
-        auto& driver = state->driver_;
-        auto& task = driver->task();
+      .thenValue(
+          &exec,
+          [state](auto&& /* unused */) {
+            auto& driver = state->driver_;
+            auto& task = driver->task();
 
-        std::lock_guard<std::timed_mutex> l(task->mutex());
-        if (!driver->state().isTerminated) {
-          state->operator_->recordBlockingTime(state->sinceUs_, state->reason_);
-        }
-        VELOX_CHECK(!driver->state().suspended());
-        VELOX_CHECK(driver->state().hasBlockingFuture);
-        driver->state().hasBlockingFuture = false;
-        if (task->pauseRequested()) {
-          // The thread will be enqueued at resume.
-          return;
-        }
-        Driver::enqueue(state->driver_);
-      })
+            std::lock_guard<std::timed_mutex> l(task->mutex());
+            if (!driver->state().isTerminated) {
+              state->operator_->recordBlockingTime(
+                  state->sinceUs_, state->reason_);
+            }
+            VELOX_CHECK(!driver->state().suspended());
+            VELOX_CHECK(driver->state().hasBlockingFuture);
+            driver->state().hasBlockingFuture = false;
+            if (task->pauseRequested()) {
+              // The thread will be enqueued at resume.
+              return;
+            }
+            Driver::enqueue(state->driver_);
+          })
       .thenError(
           folly::tag_t<std::exception>{}, [state](std::exception const& e) {
             try {

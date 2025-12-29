@@ -61,7 +61,7 @@ std::shared_ptr<velox::filesystems::FileSystem> Profiler::fileSystem_;
 tsan_atomic<bool> Profiler::isSleeping_;
 std::string Profiler::resultPath_;
 tsan_atomic<bool> Profiler::shouldStop_;
-folly::Promise<bool> Profiler::sleepPromise_;
+ContinuePromise Profiler::sleepPromise_ = ContinuePromise::makeEmpty();
 tsan_atomic<bool> Profiler::shouldSaveResult_;
 tsan_atomic<int64_t> Profiler::sampleStartTime_;
 int64_t Profiler::cpuAtSampleStart_;
@@ -216,23 +216,16 @@ std::thread Profiler::startSample() {
 }
 
 bool Profiler::interruptibleSleep(int32_t seconds) {
-  sleepPromise_ = folly::Promise<bool>();
+  sleepPromise_ = ContinuePromise::makeEmpty();
 
-  folly::SemiFuture<bool> sleepFuture(false);
+  auto sleepFuture = ContinueFuture::makeEmpty();
   {
     std::lock_guard<std::mutex> l(profileMutex_);
     isSleeping_ = true;
-    sleepPromise_ = folly::Promise<bool>();
-    sleepFuture = sleepPromise_.getSemiFuture();
+    std::tie(sleepPromise_, sleepFuture) = makeVeloxContract();
   }
   if (!shouldStop_) {
-    try {
-      auto& executor = folly::QueuedImmediateExecutor::instance();
-      std::move(sleepFuture)
-          .via(&executor)
-          .wait((std::chrono::seconds(seconds)));
-    } catch (std::exception&) {
-    }
+    sleepFuture.wait(std::chrono::seconds(seconds));
   }
   {
     std::lock_guard<std::mutex> l(profileMutex_);
@@ -348,7 +341,7 @@ void Profiler::stop() {
       return;
     }
     if (isSleeping_) {
-      sleepPromise_.setValue(true);
+      sleepPromise_.setValue();
     }
   }
   profileThread_.join();

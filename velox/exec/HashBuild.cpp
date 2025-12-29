@@ -1029,7 +1029,7 @@ void HashBuild::processSpillInput() {
     }
     if (shouldYield()) {
       state_ = State::kYield;
-      future_ = ContinueFuture{folly::Unit{}};
+      future_ = yaclib::MakeFuture();
       return;
     }
   }

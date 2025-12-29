@@ -19,6 +19,8 @@
 #include "velox/exec/Task.h"
 #include "velox/vector/EncodedVectorCopy.h"
 
+#include <yaclib/async/join.hpp>
+
 namespace facebook::velox::exec {
 namespace {
 void notify(std::vector<ContinuePromise>& promises) {
@@ -554,12 +556,13 @@ void LocalPartition::populateAndEnqueuePartitions(
         continue;
       }
 
-      ContinueFuture future;
+      auto future = ContinueFuture::makeEmpty();
       auto reason = queues_[partition]->enqueue(
           std::move(partitionData), perPartitionAmortizedSize, &future);
       if (reason != BlockingReason::kNotBlocked) {
         blockingReasons_.push_back(reason);
-        futures_.push_back(std::move(future));
+        VELOX_DCHECK(future.valid());
+        futures_.push_back(std::move(future.future));
       }
     }
   }
@@ -575,12 +578,13 @@ void LocalPartition::addInput(RowVectorPtr input) {
       ? 0
       : partitionFunction_->partition(*input, partitions_);
   if (singlePartition.has_value()) {
-    ContinueFuture future;
+    auto future = ContinueFuture::makeEmpty();
     auto blockingReason = queues_[singlePartition.value()]->enqueue(
         input, input->retainedSize(), &future);
     if (blockingReason != BlockingReason::kNotBlocked) {
       blockingReasons_.push_back(blockingReason);
-      futures_.push_back(std::move(future));
+      VELOX_DCHECK(future.valid());
+      futures_.push_back(std::move(future.future));
     }
     return;
   }
@@ -618,7 +622,7 @@ void LocalPartition::prepareForInput(RowVectorPtr& input) {
 BlockingReason LocalPartition::isBlocked(ContinueFuture* future) {
   if (!futures_.empty()) {
     auto blockingReason = blockingReasons_.front();
-    *future = folly::collectAll(futures_.begin(), futures_.end()).unit();
+    *future = yaclib::Join(futures_.begin(), futures_.size());
     futures_.clear();
     blockingReasons_.clear();
     return blockingReason;
@@ -650,7 +654,7 @@ void LocalPartition::noMoreInput() {
         if (partitionBuffers_[partition]) {
           auto partitionData = checkedPointerCast<RowVector, BaseVector>(
               partitionBuffers_[partition]);
-          ContinueFuture future;
+          auto future = ContinueFuture::makeEmpty();
 
           queues_[partition]->enqueue(
               partitionData,
@@ -669,11 +673,7 @@ void LocalPartition::noMoreInput() {
 }
 
 bool LocalPartition::isFinished() {
-  if (!futures_.empty() || !noMoreInput_) {
-    return false;
-  }
-
-  return true;
+  return futures_.empty() && noMoreInput_;
 }
 
 RowVectorPtr LocalPartition::getOutput() {

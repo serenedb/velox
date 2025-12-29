@@ -120,8 +120,7 @@ class FileInputStream : public ByteInputStream {
   std::vector<BufferPtr> buffers_;
   uint32_t bufferIndex_{0};
   // Sets to read-ahead future if valid.
-  folly::SemiFuture<uint64_t> readAheadWait_{
-      folly::SemiFuture<uint64_t>::makeEmpty()};
+  VeloxFuture<uint64_t> readAheadWait_{VeloxFuture<uint64_t>::makeEmpty()};
 
   ByteRange range_;
 

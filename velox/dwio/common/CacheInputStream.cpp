@@ -212,18 +212,15 @@ void CacheInputStream::loadSync(const Region& region) {
   ioStats_->incRawBytesRead(hitSize);
   prefetchStarted_ = false;
   do {
-    folly::SemiFuture<bool> cacheLoadWait(false);
+    auto cacheLoadWait = ContinueFuture::makeEmpty();
     cache::RawFileCacheKey key{fileNum_, region.offset};
     clearCachePin();
     pin_ = cache_->findOrCreate(key, region.length, &cacheLoadWait);
     if (pin_.empty()) {
-      VELOX_CHECK(cacheLoadWait.valid());
       uint64_t waitUs{0};
       {
         MicrosecondTimer timer(&waitUs);
-        std::move(cacheLoadWait)
-            .via(&folly::QueuedImmediateExecutor::instance())
-            .wait();
+        cacheLoadWait.wait();
       }
       ioStats_->queryThreadIoLatency().increment(waitUs);
       continue;
@@ -337,7 +334,7 @@ void CacheInputStream::loadPosition() {
   if (pin_.empty()) {
     auto load = bufferedInput_->coalescedLoad(this);
     if (load != nullptr) {
-      folly::SemiFuture<bool> waitFuture(false);
+      auto waitFuture = ContinueFuture::makeEmpty();
       uint64_t loadUs{0};
       {
         MicrosecondTimer timer(&loadUs);
