@@ -93,8 +93,9 @@ void ExchangeQueue::addPromiseLocked(
     int consumerId,
     ContinueFuture* future,
     ContinuePromise* stalePromise) {
-  ContinuePromise promise{"ExchangeQueue::dequeue"};
-  *future = promise.getSemiFuture();
+  auto [promise, f] =
+      makeVeloxContinuePromiseContract("ExchangeQueue::dequeue");
+  *future = std::move(f);
   auto it = promises_.find(consumerId);
   if (it != promises_.end()) {
     // resolve stale promises outside the lock to avoid broken promises

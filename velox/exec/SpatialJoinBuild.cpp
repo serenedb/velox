@@ -44,8 +44,10 @@ std::optional<SpatialBuildResult> SpatialJoinBridge::dataOrFuture(
   if (buildResult_.has_value()) {
     return buildResult_.value();
   }
-  promises_.emplace_back("SpatialJoinBridge::dataOrFuture");
-  *future = promises_.back().getSemiFuture();
+  auto [p, f] =
+      makeVeloxContinuePromiseContract("SpatialJoinBridge::dataOrFuture");
+  promises_.emplace_back(std::move(p));
+  *future = std::move(f);
   return std::nullopt;
 }
 

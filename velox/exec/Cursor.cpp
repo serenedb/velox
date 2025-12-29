@@ -101,8 +101,8 @@ RowVectorPtr TaskQueue::dequeue() {
       }
       if (!vector) {
         consumerBlocked_ = true;
-        consumerPromise_ = ContinuePromise("TaskQueue::dequeue");
-        consumerFuture_ = consumerPromise_.getFuture();
+        std::tie(consumerPromise_, consumerFuture_) =
+            makeVeloxContinuePromiseContract("TaskQueue::dequeue");
       }
     }
     // outside of 'mutex_'
