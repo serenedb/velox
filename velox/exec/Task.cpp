@@ -2271,9 +2271,10 @@ bool Task::allPeersFinished(
   // the peers to finish.
   if (future != nullptr) {
     state.drivers.push_back(callerShared);
-    state.allPeersFinishedPromises.emplace_back(
+    auto [p, f] = makeVeloxContinuePromiseContract(
         fmt::format("Task::allPeersFinished {}", taskId_));
-    *future = state.allPeersFinishedPromises.back().getSemiFuture();
+    state.allPeersFinishedPromises.emplace_back(std::move(p));
+    *future = std::move(f);
   }
   return false;
 }
@@ -3411,8 +3412,9 @@ bool Task::pauseRequested(ContinueFuture* future) {
     VELOX_CHECK(!future->valid());
     return false;
   }
-  resumePromises_.emplace_back("Task::isPaused");
-  *future = resumePromises_.back().getSemiFuture();
+  auto [p, f] = makeVeloxContinuePromiseContract("Task::isPaused");
+  resumePromises_.emplace_back(std::move(p));
+  *future = std::move(f);
   return true;
 }
 

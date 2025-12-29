@@ -36,8 +36,10 @@ std::optional<std::vector<RowVectorPtr>> NestedLoopJoinBridge::dataOrFuture(
   if (buildVectors_.has_value()) {
     return buildVectors_;
   }
-  promises_.emplace_back("NestedLoopJoinBridge::tableOrFuture");
-  *future = promises_.back().getSemiFuture();
+  auto [p, f] =
+      makeVeloxContinuePromiseContract("NestedLoopJoinBridge::tableOrFuture");
+  promises_.emplace_back(std::move(p));
+  *future = std::move(f);
   return std::nullopt;
 }
 

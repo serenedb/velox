@@ -221,12 +221,10 @@ void ArbitrationParticipant::startArbitration(ArbitrationOperation* op) {
     ++numRequests_;
     if (runningOp_ != nullptr) {
       op->setState(ArbitrationOperation::State::kWaiting);
-      WaitOp waitOp{
-          op,
-          ContinuePromise{fmt::format(
-              "Wait for arbitration on {}", op->participant()->name())}};
-      waitPromise = waitOp.waitPromise.getSemiFuture();
-      waitOps_.emplace_back(std::move(waitOp));
+      auto [p, f] = makeVeloxContinuePromiseContract(
+          fmt::format("Wait for arbitration on {}", op->participant()->name()));
+      waitOps_.emplace_back(op, std::move(p));
+      waitPromise = std::move(f);
     } else {
       runningOp_ = op;
     }

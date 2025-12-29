@@ -40,6 +40,7 @@ namespace facebook::velox {
 /// consumer will make it instead. If multiple consumers request the
 /// same item, exactly one gets it. Propagates exceptions to the
 /// consumer.
+// TODO(mbkkt) Optimize memory layout.
 template <typename Item>
 class AsyncSource {
  public:
@@ -114,8 +115,8 @@ class AsyncSource {
             // Somebody else is already waiting for the item to be made.
             return nullptr;
           }
-          promises_.emplace_back("AsyncSource::move");
-          wait = promises_.back().getSemiFuture();
+          std::tie(promises_.emplace_back(ContinuePromise::EmptyTag{}), wait) =
+              makeVeloxContinuePromiseContract("AsyncSource::move");
           break;
         case State::kInit:
           VELOX_CHECK_NOT_NULL(itemMaker_);
@@ -204,8 +205,8 @@ class AsyncSource {
         return;
       }
       checkState(state(), State::kMaking);
-      promises_.emplace_back("AsyncSource::close");
-      wait = promises_.back().getSemiFuture();
+      std::tie(promises_.emplace_back(ContinuePromise::EmptyTag{}), wait) =
+          makeVeloxContinuePromiseContract("AsyncSource::close");
     }
 
     makeWait(std::move(wait));

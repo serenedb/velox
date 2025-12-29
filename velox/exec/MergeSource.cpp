@@ -110,8 +110,10 @@ class LocalMergeSource : public MergeSource {
       if (started_) {
         return BlockingReason::kNotBlocked;
       }
-      producerPromises_.emplace_back("LocalMergeSourceQueue::started");
-      *future = producerPromises_.back().getSemiFuture();
+      auto [p, f] =
+          makeVeloxContinuePromiseContract("LocalMergeSourceQueue::started");
+      producerPromises_.emplace_back(std::move(p));
+      *future = std::move(f);
       return BlockingReason::kWaitForConsumer;
     }
 
@@ -126,8 +128,10 @@ class LocalMergeSource : public MergeSource {
           data.reset();
           return BlockingReason::kNotBlocked;
         }
-        consumerPromises_.emplace_back("LocalMergeSourceQueue::next");
-        *future = consumerPromises_.back().getSemiFuture();
+        auto [p, f] =
+            makeVeloxContinuePromiseContract("LocalMergeSourceQueue::next");
+        consumerPromises_.emplace_back(std::move(p));
+        *future = std::move(f);
         return BlockingReason::kWaitForProducer;
       }
 
@@ -160,8 +164,10 @@ class LocalMergeSource : public MergeSource {
       notifyConsumers(notification);
 
       if (data_.full()) {
-        producerPromises_.emplace_back("LocalMergeSourceQueue::enqueue");
-        *future = producerPromises_.back().getSemiFuture();
+        auto [p, f] =
+            makeVeloxContinuePromiseContract("LocalMergeSourceQueue::enqueue");
+        producerPromises_.emplace_back(std::move(p));
+        *future = std::move(f);
         return BlockingReason::kWaitForConsumer;
       }
       return BlockingReason::kNotBlocked;
@@ -337,8 +343,8 @@ BlockingReason MergeJoinSource::next(
       return BlockingReason::kNotBlocked;
     }
 
-    consumerPromise_ = ContinuePromise("MergeJoinSource::next");
-    *future = consumerPromise_->getSemiFuture();
+    std::tie(consumerPromise_, *future) =
+        makeVeloxContinuePromiseContract("MergeJoinSource::next");
     return BlockingReason::kWaitForProducer;
   });
 }
