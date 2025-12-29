@@ -19,7 +19,6 @@
 #include <fmt/core.h>
 #include <folly/Unit.h>
 #include <folly/executors/QueuedImmediateExecutor.h>
-#include <folly/futures/Future.h>
 #include <atomic>
 #include <functional>
 #include <memory>
@@ -93,7 +92,7 @@ class AsyncSource {
     common::testutil::TestValue::adjust(
         "facebook::velox::AsyncSource::move", this);
     std::function<std::unique_ptr<Item>()> itemMaker{nullptr};
-    ContinueFuture wait;
+    auto wait = ContinueFuture::makeEmpty();
     {
       std::lock_guard<std::mutex> l(mutex_);
       const auto currentState = state();
@@ -115,7 +114,7 @@ class AsyncSource {
             // Somebody else is already waiting for the item to be made.
             return nullptr;
           }
-          std::tie(promises_.emplace_back(ContinuePromise::EmptyTag{}), wait) =
+          std::tie(promises_.emplace_back(ContinuePromise::makeEmpty()), wait) =
               makeVeloxContinuePromiseContract("AsyncSource::move");
           break;
         case State::kInit:
@@ -198,14 +197,14 @@ class AsyncSource {
         currentState == State::kCancelled) {
       return;
     }
-    ContinueFuture wait;
+    auto wait = ContinueFuture::makeEmpty();
     {
       std::lock_guard<std::mutex> l(mutex_);
       if (tryCloseLocked()) {
         return;
       }
       checkState(state(), State::kMaking);
-      std::tie(promises_.emplace_back(ContinuePromise::EmptyTag{}), wait) =
+      std::tie(promises_.emplace_back(ContinuePromise::makeEmpty()), wait) =
           makeVeloxContinuePromiseContract("AsyncSource::close");
     }
 
@@ -362,8 +361,7 @@ class AsyncSource {
   inline void makeWait(ContinueFuture&& wait) {
     common::testutil::TestValue::adjust(
         "facebook::velox::AsyncSource::makeWait", this);
-    auto& exec = folly::QueuedImmediateExecutor::instance();
-    std::move(wait).via(&exec).wait();
+    std::move(wait).wait();
   }
 
   // Attempts to close immediately while holding the lock. Returns true if

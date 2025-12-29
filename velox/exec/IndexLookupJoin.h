@@ -387,7 +387,7 @@ class IndexLookupJoin : public Operator {
   // True if we have received the no-more-splits signal for the index source.
   bool noMoreIndexSplits_{false};
   // The future to wait for the next index split.
-  ContinueFuture indexSplitFuture_;
+  ContinueFuture indexSplitFuture_{ContinueFuture::makeEmpty()};
   // The collected splits for the index source. It is passed to index source
   // after the no-more-splits signal is received (i.e., 'noMoreIndexSplits_' is
   // true).

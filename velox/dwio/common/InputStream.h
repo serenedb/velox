@@ -103,7 +103,7 @@ class InputStream {
 
   /// Like read() with the same arguments but returns the result or
   /// exception via SemiFuture. Use only if hasReadAsync() is true.
-  virtual folly::SemiFuture<uint64_t> readAsync(
+  virtual VeloxFuture<uint64_t> readAsync(
       const std::vector<folly::Range<char*>>& buffers,
       uint64_t offset,
       LogType logType);
@@ -164,7 +164,7 @@ class ReadFileInputStream final : public InputStream {
       uint64_t offset,
       LogType logType) override;
 
-  folly::SemiFuture<uint64_t> readAsync(
+  VeloxFuture<uint64_t> readAsync(
       const std::vector<folly::Range<char*>>& buffers,
       uint64_t offset,
       LogType logType) override;

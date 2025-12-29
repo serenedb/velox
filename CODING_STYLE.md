@@ -415,6 +415,6 @@ using TypePtr = std::shared_ptr<const Type>;
   aliases.
 
 ```
-using ContinuePromise = VeloxPromise<folly::Unit>;
-using ContinueFuture = folly::SemiFuture<folly::Unit>;
+using ContinuePromise = VeloxPromise<void>;
+using ContinueFuture = VeloxFuture<void>;
 ```

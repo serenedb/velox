@@ -44,20 +44,18 @@ int64_t totalBufferSize(const std::vector<folly::Range<char*>>& buffers) {
 }
 } // namespace
 
-folly::SemiFuture<uint64_t> InputStream::readAsync(
+VeloxFuture<uint64_t> InputStream::readAsync(
     const std::vector<folly::Range<char*>>& buffers,
     uint64_t offset,
-    LogType logType) {
-  try {
-    read(buffers, offset, logType);
-    uint64_t size = 0;
-    for (auto& range : buffers) {
-      size += range.size();
-    }
-    return folly::SemiFuture<uint64_t>(size);
-  } catch (const std::exception& e) {
-    return folly::makeSemiFuture<uint64_t>(e);
+    LogType logType) try {
+  read(buffers, offset, logType);
+  uint64_t size = 0;
+  for (auto& range : buffers) {
+    size += range.size();
   }
+  return VeloxFuture<uint64_t>::make(size);
+} catch (...) {
+  return VeloxFuture<uint64_t>::make(std::current_exception());
 }
 
 ReadFileInputStream::ReadFileInputStream(
@@ -115,7 +113,7 @@ void ReadFileInputStream::read(
       size);
 }
 
-folly::SemiFuture<uint64_t> ReadFileInputStream::readAsync(
+VeloxFuture<uint64_t> ReadFileInputStream::readAsync(
     const std::vector<folly::Range<char*>>& buffers,
     uint64_t offset,
     LogType logType) {

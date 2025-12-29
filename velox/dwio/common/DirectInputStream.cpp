@@ -163,7 +163,7 @@ void DirectInputStream::loadPosition() {
     loaded_ = true;
     auto load = bufferedInput_->coalescedLoad(this);
     if (load != nullptr) {
-      folly::SemiFuture<bool> waitFuture(false);
+      auto waitFuture = ContinueFuture::makeEmpty();
       uint64_t loadUs = 0;
       {
         MicrosecondTimer timer(&loadUs);

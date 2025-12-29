@@ -19,6 +19,7 @@
 
 #include <fmt/format.h>
 #include <glog/logging.h>
+#include <yaclib/async/connect.hpp>
 #include <memory>
 #include <stdexcept>
 
@@ -263,21 +264,21 @@ uint64_t LocalReadFile::preadv(
   return totalBytesRead;
 }
 
-folly::SemiFuture<uint64_t> LocalReadFile::preadvAsync(
+VeloxFuture<uint64_t> LocalReadFile::preadvAsync(
     uint64_t offset,
     const std::vector<folly::Range<char*>>& buffers,
     const FileIoContext& context) const {
   if (!executor_) {
     return ReadFile::preadvAsync(offset, buffers, context);
   }
-  auto [promise, future] = folly::makePromiseContract<uint64_t>();
+  auto [promise, future] = makeVeloxContract<uint64_t>();
   executor_->add([this,
                   _promise = std::move(promise),
                   _offset = offset,
                   _buffers = buffers,
                   _context = context]() mutable {
     auto delegateFuture = ReadFile::preadvAsync(_offset, _buffers, _context);
-    _promise.setTry(std::move(delegateFuture).getTry());
+    Connect(std::move(delegateFuture.future), std::move(_promise.promise));
   });
   return std::move(future);
 }

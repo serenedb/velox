@@ -93,12 +93,12 @@ void ScaleWriterPartitioningLocalPartition::addInput(RowVectorPtr input) {
   prepareForInput(input);
 
   if (numPartitions_ == 1) {
-    ContinueFuture future;
+    auto future = ContinueFuture::makeEmpty();
     auto blockingReason =
         queues_[0]->enqueue(input, input->retainedSize(), &future);
     if (blockingReason != BlockingReason::kNotBlocked) {
       blockingReasons_.push_back(blockingReason);
-      futures_.push_back(std::move(future));
+      futures_.push_back(std::move(future.future));
     }
     return;
   }
@@ -149,12 +149,12 @@ void ScaleWriterPartitioningLocalPartition::addInput(RowVectorPtr input) {
 
     VELOX_CHECK_EQ(tablePartitionWriterIds_[partitionId], -1);
     const auto writerId = getNextWriterId(partitionId);
-    ContinueFuture future;
+    auto future = ContinueFuture::makeEmpty();
     auto blockingReason =
         queues_[writerId]->enqueue(input, totalInputBytes, &future);
     if (blockingReason != BlockingReason::kNotBlocked) {
       blockingReasons_.push_back(blockingReason);
-      futures_.push_back(std::move(future));
+      futures_.push_back(std::move(future.future));
     }
   } else {
     prepareForWriterAssignments(numInput);
@@ -261,12 +261,12 @@ void ScaleWriterLocalPartition::addInput(RowVectorPtr input) {
   }
   VELOX_CHECK_LT(writerId, numPartitions_);
 
-  ContinueFuture future;
+  auto future = ContinueFuture::makeEmpty();
   auto blockingReason =
       queues_[writerId]->enqueue(input, input->retainedSize(), &future);
   if (blockingReason != BlockingReason::kNotBlocked) {
     blockingReasons_.push_back(blockingReason);
-    futures_.push_back(std::move(future));
+    futures_.push_back(std::move(future.future));
   }
 }
 
