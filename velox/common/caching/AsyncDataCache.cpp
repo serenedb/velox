@@ -49,15 +49,15 @@ AsyncDataCacheEntry::~AsyncDataCacheEntry() {
 void AsyncDataCacheEntry::setExclusiveToShared(bool ssdSavable) {
   VELOX_CHECK(isExclusive());
   numPins_ = 1;
-  std::unique_ptr<folly::SharedPromise<bool>> promise;
+  yaclib::SharedPromise<> promise;
   {
     std::lock_guard<std::mutex> l(shard_->mutex());
     // Enter the shard's mutex to make sure a promise is not being added during
     // the move.
     promise = std::move(promise_);
   }
-  if (promise != nullptr) {
-    promise->setValue(true);
+  if (promise.Valid()) {
+    std::move(promise).Set();
   }
 
   // The entry may now have other readers, It is safe to do read-only ops like
@@ -89,8 +89,8 @@ void AsyncDataCacheEntry::release() {
     // the content could not be shared, e.g. error in loading.
     auto promise = shard_->removeEntry(this);
     // Realize the promise outside of the shard mutex.
-    if (promise != nullptr) {
-      promise->setValue(true);
+    if (promise.Valid()) {
+      std::move(promise).Set();
     }
     numPins_ = 0;
   } else {
@@ -165,7 +165,7 @@ std::unique_ptr<AsyncDataCacheEntry> CacheShard::getFreeEntryLocked() {
 CachePin CacheShard::findOrCreate(
     RawFileCacheKey key,
     uint64_t size,
-    folly::SemiFuture<bool>* wait) {
+    ContinueFuture* wait) {
   AsyncDataCacheEntry* entryToInit = nullptr;
   {
     std::lock_guard<std::mutex> l(mutex_);
@@ -215,7 +215,7 @@ CachePin CacheShard::findOrCreate(
     auto newEntry = getFreeEntryLocked();
     // Initialize the members that must be set inside 'mutex_'.
     newEntry->numPins_ = AsyncDataCacheEntry::kExclusive;
-    newEntry->promise_ = nullptr;
+    newEntry->promise_ = {};
     entryToInit = newEntry.get();
     entryMap_[key] = newEntry.get();
     if (emptySlots_.empty()) {
@@ -274,9 +274,7 @@ CoalescedLoad::~CoalescedLoad() {
   setEndState(State::kCancelled);
 }
 
-bool CoalescedLoad::loadOrFuture(
-    folly::SemiFuture<bool>* wait,
-    bool ssdSavable) {
+bool CoalescedLoad::loadOrFuture(ContinueFuture* wait, bool ssdSavable) {
   {
     std::lock_guard<std::mutex> l(mutex_);
     if (state_ == State::kCancelled || state_ == State::kLoaded) {
@@ -286,10 +284,12 @@ bool CoalescedLoad::loadOrFuture(
       if (wait == nullptr) {
         return false;
       }
-      if (promise_ == nullptr) {
-        promise_ = std::make_unique<folly::SharedPromise<bool>>();
+      if (!promise_.Valid()) {
+        promise_ = yaclib::MakeSharedPromise();
       }
-      *wait = promise_->getSemiFuture();
+      auto [f, p] = yaclib::MakeContract();
+      Connect(promise_, std::move(p));
+      *wait = std::move(f);
       return false;
     }
 
@@ -319,24 +319,23 @@ bool CoalescedLoad::loadOrFuture(
 }
 
 void CoalescedLoad::setEndState(State endState) {
-  std::unique_ptr<folly::SharedPromise<bool>> promise;
+  yaclib::SharedPromise<> promise;
   {
     std::lock_guard<std::mutex> l(mutex_);
     state_ = endState;
-    promise.swap(promise_);
+    promise = std::move(promise_);
   }
-  if (promise != nullptr) {
-    promise->setValue(true);
+  if (promise.Valid()) {
+    std::move(promise).Set();
   }
 }
 
-std::unique_ptr<folly::SharedPromise<bool>> CacheShard::removeEntry(
-    AsyncDataCacheEntry* entry) {
+yaclib::SharedPromise<> CacheShard::removeEntry(AsyncDataCacheEntry* entry) {
   std::lock_guard<std::mutex> l(mutex_);
   removeEntryLocked(entry);
   // After the entry is removed from the hash table, a promise can no longer
   // be made. It is safe to move the promise and realize it.
-  return entry->movePromiseLocked();
+  return std::move(entry->promise_);
 }
 
 void CacheShard::removeEntryLocked(AsyncDataCacheEntry* entry) {
@@ -733,7 +732,7 @@ void CacheShard::shutdown() {
 CachePin AsyncDataCache::findOrCreate(
     RawFileCacheKey key,
     uint64_t size,
-    folly::SemiFuture<bool>* wait) {
+    ContinueFuture* wait) {
   const int shard = std::hash<RawFileCacheKey>()(key) & (kShardMask);
   return shards_[shard]->findOrCreate(key, size, wait);
 }

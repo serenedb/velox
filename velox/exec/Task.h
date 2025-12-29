@@ -295,14 +295,6 @@ class Task : public std::enable_shared_from_this<Task> {
     return state_;
   }
 
-  /// Returns a future which is realized when the task's state has changed and
-  /// the Task is ready to report some progress (such as split group finished or
-  /// task is completed).
-  /// If the task is not in running state at the time of call, the future is
-  /// immediately realized. The future is realized with an exception after
-  /// maxWaitMicros. A zero max wait means no timeout.
-  ContinueFuture stateChangeFuture(uint64_t maxWaitMicros);
-
   /// Returns a future which is realized when the task is no longer in
   /// running state.
   /// If the task is not in running state at the time of call, the future is

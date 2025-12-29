@@ -36,7 +36,6 @@
 
 #include <folly/Executor.h>
 #include <folly/Range.h>
-#include <folly/futures/Future.h>
 #include <folly/io/IOBuf.h>
 
 #include "velox/common/base/Exceptions.h"
@@ -120,15 +119,13 @@ class ReadFile {
   /// exception via SemiFuture. Use hasPreadvAsync() to check if the
   /// implementation is in fact asynchronous.
   /// This method should be thread safe.
-  virtual folly::SemiFuture<uint64_t> preadvAsync(
+  virtual VeloxFuture<uint64_t> preadvAsync(
       uint64_t offset,
       const std::vector<folly::Range<char*>>& buffers,
-      const FileIoContext& context = {}) const {
-    try {
-      return folly::SemiFuture<uint64_t>(preadv(offset, buffers, context));
-    } catch (const std::exception& e) {
-      return folly::makeSemiFuture<uint64_t>(e);
-    }
+      const FileIoContext& context = {}) const try {
+    return VeloxFuture<uint64_t>::make(preadv(offset, buffers, context));
+  } catch (...) {
+    return VeloxFuture<uint64_t>::make(std::current_exception());
   }
 
   // Returns true if preadvAsync has a native implementation that is
@@ -329,7 +326,7 @@ class LocalReadFile final : public ReadFile {
       const std::vector<folly::Range<char*>>& buffers,
       const FileIoContext& context = {}) const final;
 
-  folly::SemiFuture<uint64_t> preadvAsync(
+  VeloxFuture<uint64_t> preadvAsync(
       uint64_t offset,
       const std::vector<folly::Range<char*>>& buffers,
       const FileIoContext& context = {}) const override;

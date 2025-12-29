@@ -181,7 +181,7 @@ std::vector<std::unique_ptr<SerializedPageBase>> ExchangeClient::next(
 void ExchangeClient::request(std::vector<RequestSpec>&& requestSpecs) {
   auto self = shared_from_this();
   for (auto& spec : requestSpecs) {
-    auto future = folly::SemiFuture<ExchangeSource::Response>::makeEmpty();
+    auto future = VeloxFuture<ExchangeSource::Response>::makeEmpty();
     if (spec.maxBytes == 0) {
       future = spec.source->requestDataSizes(kRequestDataSizesMaxWaitSec_);
     } else {
@@ -189,10 +189,10 @@ void ExchangeClient::request(std::vector<RequestSpec>&& requestSpecs) {
     }
     VELOX_CHECK(future.valid());
     std::move(future)
-        .via(executor_)
         .thenValue(
+            executor_,
             [self, spec = std::move(spec), sendTimeMs = getCurrentTimeMs()](
-                ExchangeSource::Response&& response) {
+                ExchangeSource::Response&& response) mutable {
               const auto requestTimeMs = getCurrentTimeMs() - sendTimeMs;
               if (spec.maxBytes == 0) {
                 RECORD_HISTOGRAM_METRIC_VALUE(

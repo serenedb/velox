@@ -141,7 +141,7 @@ RowVectorPtr TableScan::getOutput() {
     if (shouldStop(taskStopReason) ||
         shouldYield(taskStopReason, startTimeMs)) {
       blockingReason_ = BlockingReason::kYield;
-      blockingFuture_ = ContinueFuture{folly::Unit{}};
+      blockingFuture_ = yaclib::MakeFuture();
       // A point for test code injection.
       TestValue::adjust(
           "facebook::velox::exec::TableScan::getOutput::yield", this);

@@ -19,7 +19,6 @@
 #include <memory>
 
 #include <folly/executors/CPUThreadPoolExecutor.h>
-#include <folly/futures/Future.h>
 #include <folly/portability/SysSyscall.h>
 
 #include "velox/common/base/Counters.h"

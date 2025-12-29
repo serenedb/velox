@@ -16,71 +16,161 @@
 
 #pragma once
 
-#include <folly/Unit.h>
-#include <folly/futures/Future.h>
+#include <folly/Executor.h>
+#include <glog/logging.h>
+#include <yaclib/async/contract.hpp>
+#include <yaclib/async/future.hpp>
+#include <yaclib/async/make.hpp>
+#include <yaclib/async/promise.hpp>
+#include <yaclib/async/wait_for.hpp>
 
 namespace facebook::velox {
-/// Simple wrapper around folly's promise to track down destruction of
-/// unfulfilled promises.
+
 template <class T>
 class VeloxPromise {
- public:
   struct EmptyTag {
     explicit EmptyTag() = default;
   };
 
-  explicit VeloxPromise(folly::Promise<T> promise, std::string&& context)
-      : promise_{std::move(promise)}, context_{std::move(context)} {
-    if (context_.empty()) {
-      LOG(WARNING)
-          << "PROMISE: VeloxPromise must be constructed with a context.";
-    }
-  }
+ public:
+  VeloxPromise(VeloxPromise<T>&&) noexcept = default;
+  VeloxPromise& operator=(VeloxPromise<T>&&) noexcept = default;
 
-  explicit VeloxPromise(EmptyTag) noexcept
-      : promise_{folly::Promise<T>::makeEmpty()} {}
+  VeloxPromise(EmptyTag) noexcept {}
 
-  ~VeloxPromise() {
-    if (!promise_.isFulfilled()) {
-      LOG(WARNING) << "PROMISE: Unfulfilled promise is being deleted. Context: "
-                   << context_;
-    }
-  }
-
-  VeloxPromise(VeloxPromise<T>&& other) noexcept = default;
-  VeloxPromise& operator=(VeloxPromise<T>&& other) noexcept = default;
+  VeloxPromise(yaclib::Promise<T> promise) : promise{std::move(promise)} {}
 
   static VeloxPromise makeEmpty() noexcept {
     return VeloxPromise<T>{EmptyTag{}};
   }
 
   void setValue() {
-    promise_.setValue();
+    std::move(promise).Set();
   }
 
   bool valid() const noexcept {
-    return promise_.valid();
+    return promise.Valid();
   }
 
- private:
-  folly::Promise<T> promise_;
-  std::string context_;
+  yaclib::Promise<T> promise;
 };
 
-using ContinuePromise = VeloxPromise<folly::Unit>;
-using ContinueFuture = folly::SemiFuture<folly::Unit>;
+template <typename T>
+class VeloxFuture {
+  struct EmptyTag {
+    explicit EmptyTag() = default;
+  };
 
-/// Equivalent of folly's makePromiseContract for VeloxPromise.
-///
-/// NOTE: When you already have a valid promise, just call
-/// Promise::getSemiFuture() on it to get the future, instead of using this
-/// function to overwrite the promise.  Overwriting valid promise would cause
-/// exception throwing and stack unwinding thus performance issue.  See
-/// https://github.com/prestodb/presto/issues/26094 for details.
+ public:
+  using Base = yaclib::Future<T>;
+
+  VeloxFuture(VeloxFuture<T>&&) noexcept = default;
+  VeloxFuture& operator=(VeloxFuture<T>&&) noexcept = default;
+
+  VeloxFuture(EmptyTag) noexcept {}
+
+  VeloxFuture(Base future) : future{std::move(future)} {}
+
+  static VeloxFuture makeEmpty() noexcept {
+    return {EmptyTag{}};
+  }
+
+  bool valid() const noexcept {
+    return future.Valid();
+  }
+
+  bool isReady() const noexcept {
+    return !valid() || future.Ready();
+  }
+
+  void wait() {
+    if (!isReady()) {
+      Wait(future);
+    }
+  }
+
+  template <typename Duration>
+  bool wait(Duration timeout) {
+    if (!isReady()) {
+      return WaitFor(timeout, future);
+    }
+    return true;
+  }
+
+  T get() {
+    return std::move(future).Get().Ok();
+  }
+
+  template <typename Func>
+  auto thenValue(folly::Executor::KeepAlive<> executor, Func&& callback) {
+    using A = std::conditional_t<std::is_void_v<T>, yaclib::Unit, T>;
+    using R = decltype(callback(std::declval<A>()));
+    return VeloxFuture<R>{std::move(future).ThenInline(
+        [executor = std::move(executor),
+         callback = std::forward<Func>(callback)](A&& value) {
+          auto [f, p] = yaclib::MakeContract<R>();
+          executor->add([callback = std::move(callback),
+                         p = std::move(p),
+                         value = std::move(value)]() mutable {
+            try {
+              if constexpr (std::is_void_v<R>) {
+                callback(std::move(value));
+                std::move(p).Set();
+              } else {
+                std::move(p).Set(callback(std::move(value)));
+              }
+            } catch (...) {
+              std::move(p).Set(std::current_exception());
+            }
+          });
+          return std::move(f);
+        })};
+  }
+
+  template <typename Tag, typename Func>
+  void thenError(Tag, Func&& callback) {
+    std::move(future).DetachInline(
+        [callback = std::forward<Func>(callback)](yaclib::Result<> r) {
+          if (r) {
+            return;
+          }
+          try {
+            std::ignore = std::move(r).Ok();
+          } catch (const std::exception& e) {
+            callback(e);
+          }
+        });
+  }
+
+  template <typename... Args>
+  static VeloxFuture<T> make(Args&&... args) {
+    return yaclib::MakeFuture<T>(std::forward<Args>(args)...);
+  }
+
+  static auto makeVector(size_t size) {
+    std::vector<VeloxFuture<T>> futures;
+    futures.reserve(size);
+    for (size_t i = 0; i != size; ++i) {
+      futures.emplace_back(VeloxFuture<T>::makeEmpty());
+    }
+    return futures;
+  }
+
+  Base future;
+};
+
+template <typename T = void>
+inline std::pair<VeloxPromise<T>, VeloxFuture<T>> makeVeloxContract() {
+  auto [f, p] = yaclib::MakeContract<T>();
+  return {std::move(p), std::move(f)};
+}
+
+using ContinuePromise = VeloxPromise<void>;
+using ContinueFuture = VeloxFuture<void>;
+
 inline std::pair<ContinuePromise, ContinueFuture>
-makeVeloxContinuePromiseContract(std::string&& context) {
-  auto [p, f] = folly::makePromiseContract<folly::Unit>();
-  return {ContinuePromise{std::move(p), std::move(context)}, std::move(f)};
+makeVeloxContinuePromiseContract(std::string_view context) {
+  return makeVeloxContract();
 }
 
 } // namespace facebook::velox

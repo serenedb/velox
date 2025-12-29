@@ -196,7 +196,7 @@ class LocalExchange : public SourceOperator {
  private:
   const int partition_;
   const std::shared_ptr<LocalExchangeQueue> queue_{nullptr};
-  ContinueFuture future_;
+  ContinueFuture future_{ContinueFuture::makeEmpty()};
   BlockingReason blockingReason_{BlockingReason::kNotBlocked};
 };
 
@@ -261,7 +261,7 @@ class LocalPartition : public Operator {
   std::unique_ptr<core::PartitionFunction> partitionFunction_;
 
   std::vector<BlockingReason> blockingReasons_;
-  std::vector<ContinueFuture> futures_;
+  std::vector<ContinueFuture::Base> futures_;
 
   /// Reusable memory for hash calculation.
   std::vector<uint32_t> partitions_;

@@ -34,10 +34,7 @@ RowVectorPtr CallbackSink::getOutput() {
 
 bool CallbackSink::startDrain() {
   VELOX_CHECK(isDraining());
-  if (consumeCb_ == nullptr) {
-    return false;
-  }
-  return true;
+  return consumeCb_ != nullptr;
 }
 
 void CallbackSink::noMoreInput() {

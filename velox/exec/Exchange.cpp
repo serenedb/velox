@@ -20,6 +20,8 @@
 #include "velox/exec/Task.h"
 #include "velox/serializers/CompactRowSerializer.h"
 
+#include <yaclib/async/when_any.hpp>
+
 namespace facebook::velox::exec {
 
 folly::dynamic RemoteConnectorSplit::serialize() const {
@@ -139,7 +141,7 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
     getSplits(&splitFuture_);
   }
 
-  ContinueFuture dataFuture;
+  auto dataFuture = ContinueFuture::makeEmpty();
   currentPages_ = exchangeClient_->next(
       driverId_, preferredOutputBatchBytes_, &atEnd_, &dataFuture);
   if (!currentPages_.empty() || atEnd_) {
@@ -152,18 +154,16 @@ BlockingReason Exchange::isBlocked(ContinueFuture* future) {
   }
 
   // We have a dataFuture and we may also have a splitFuture_.
+  VELOX_CHECK(dataFuture.valid());
 
   if (splitFuture_.valid()) {
     // Block until data becomes available or more splits arrive.
-    std::vector<ContinueFuture> futures;
-    futures.push_back(std::move(splitFuture_));
-    futures.push_back(std::move(dataFuture));
-    *future = folly::collectAny(futures).unit();
+    *future = yaclib::WhenAny(
+        std::move(splitFuture_.future), std::move(dataFuture.future));
     return BlockingReason::kWaitForSplit;
   }
 
   // Block until data becomes available.
-  VELOX_CHECK(dataFuture.valid());
   *future = std::move(dataFuture);
   return BlockingReason::kWaitForProducer;
 }

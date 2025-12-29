@@ -39,27 +39,21 @@ std::vector<std::unique_ptr<folly::IOBuf>> getData(
     const std::shared_ptr<exec::OutputBufferManager>& bufferManager,
     const std::string& taskId,
     int destination,
-    int64_t sequence,
-    folly::Executor* executor) {
-  auto [promise, semiFuture] =
-      folly::makePromiseContract<std::vector<std::unique_ptr<folly::IOBuf>>>();
+    int64_t sequence) {
+  auto [promise, future] =
+      makeVeloxContract<std::vector<std::unique_ptr<folly::IOBuf>>>();
   VELOX_CHECK(bufferManager->getData(
       taskId,
       destination,
       exec::PartitionedOutput::kMinDestinationSize,
       sequence,
-      [result = std::make_shared<
-           folly::Promise<std::vector<std::unique_ptr<folly::IOBuf>>>>(
-           std::move(promise))](
+      [promise = std::move(promise)](
           std::vector<std::unique_ptr<folly::IOBuf>> pages,
           int64_t /*inSequence*/,
-          std::vector<int64_t> /*remainingBytes*/) {
-        result->setValue(std::move(pages));
+          std::vector<int64_t> /*remainingBytes*/) mutable {
+        std::move(promise.promise).Set(std::move(pages));
       }));
-  auto future = std::move(semiFuture).via(executor);
-  future.wait();
-  VELOX_CHECK(future.isReady());
-  return std::move(future).value();
+  return std::move(future).get();
 }
 } // namespace
 
@@ -81,12 +75,8 @@ void consumeAllData(
       while (!finished) {
         std::vector<std::unique_ptr<folly::IOBuf>> pages;
         {
-          pages = getData(
-              bufferManager,
-              taskId,
-              partition,
-              sequences[partition],
-              driverExecutor);
+          pages =
+              getData(bufferManager, taskId, partition, sequences[partition]);
         }
         for (auto& page : pages) {
           if (page) {

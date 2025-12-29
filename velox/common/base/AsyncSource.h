@@ -18,7 +18,6 @@
 
 #include <folly/Unit.h>
 #include <folly/executors/QueuedImmediateExecutor.h>
-#include <folly/futures/Future.h>
 #include <functional>
 #include <memory>
 #include "velox/common/time/CpuWallTimer.h"
@@ -83,7 +82,7 @@ class AsyncSource {
       std::lock_guard<std::mutex> l(mutex_);
       exception_ = std::current_exception();
     }
-    std::optional<ContinuePromise> promise;
+    auto promise = ContinuePromise::makeEmpty();
     {
       std::lock_guard<std::mutex> l(mutex_);
       VELOX_CHECK_NULL(item_);
@@ -91,10 +90,10 @@ class AsyncSource {
         item_ = std::move(item);
       }
       making_ = false;
-      promise.swap(promise_);
+      promise = std::move(promise_);
     }
-    if (promise) {
-      promise->setValue();
+    if (promise.valid()) {
+      promise.setValue();
     }
   }
 
@@ -105,7 +104,7 @@ class AsyncSource {
     common::testutil::TestValue::adjust(
         "facebook::velox::AsyncSource::move", this);
     std::function<std::unique_ptr<Item>()> make = nullptr;
-    ContinueFuture wait;
+    auto wait = ContinueFuture::makeEmpty();
     {
       std::lock_guard<std::mutex> l(mutex_);
       moved_ = true;
@@ -117,7 +116,7 @@ class AsyncSource {
       if (item_) {
         return std::move(item_);
       }
-      if (promise_) {
+      if (promise_.valid()) {
         // Somebody else is now waiting for the item to be made.
         return nullptr;
       }
@@ -141,8 +140,7 @@ class AsyncSource {
         throw;
       }
     }
-    auto& exec = folly::QueuedImmediateExecutor::instance();
-    std::move(wait).via(&exec).wait();
+    wait.wait();
     std::lock_guard<std::mutex> l(mutex_);
     if (exception_) {
       std::rethrow_exception(exception_);
@@ -187,7 +185,7 @@ class AsyncSource {
     if (closed_ || moved_) {
       return;
     }
-    ContinueFuture wait;
+    auto wait = ContinueFuture::makeEmpty();
     {
       std::lock_guard<std::mutex> l(mutex_);
       if (making_) {
@@ -198,8 +196,7 @@ class AsyncSource {
       }
     }
 
-    auto& exec = folly::QueuedImmediateExecutor::instance();
-    std::move(wait).via(&exec).wait();
+    wait.wait();
     {
       std::lock_guard<std::mutex> l(mutex_);
       if (item_) {
@@ -221,13 +218,13 @@ class AsyncSource {
   std::optional<process::ThreadDebugInfo> threadDebugInfo_;
 
   mutable std::mutex mutex_;
-  // True if 'prepare() is making the item.
-  bool making_{false};
-  std::optional<ContinuePromise> promise_;
+  ContinuePromise promise_{ContinuePromise::makeEmpty()};
   std::unique_ptr<Item> item_;
   std::function<std::unique_ptr<Item>()> make_;
   std::exception_ptr exception_;
   CpuWallTiming timing_;
+  // True if 'prepare() is making the item.
+  bool making_{false};
   bool closed_{false};
   bool moved_{false};
   bool cancelled_{false};
