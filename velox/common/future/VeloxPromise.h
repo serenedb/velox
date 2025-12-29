@@ -23,18 +23,14 @@ namespace facebook::velox {
 /// Simple wrapper around folly's promise to track down destruction of
 /// unfulfilled promises.
 template <class T>
-class VeloxPromise : public folly::Promise<T> {
+class VeloxPromise {
  public:
-  struct ContextTag {
-    explicit ContextTag() = default;
-  };
-
   struct EmptyTag {
     explicit EmptyTag() = default;
   };
 
-  explicit VeloxPromise(ContextTag, std::string&& context)
-      : folly::Promise<T>{}, context_{std::move(context)} {
+  explicit VeloxPromise(folly::Promise<T> promise, std::string&& context)
+      : promise_{std::move(promise)}, context_{std::move(context)} {
     if (context_.empty()) {
       LOG(WARNING)
           << "PROMISE: VeloxPromise must be constructed with a context.";
@@ -42,10 +38,10 @@ class VeloxPromise : public folly::Promise<T> {
   }
 
   explicit VeloxPromise(EmptyTag) noexcept
-      : folly::Promise<T>{folly::Promise<T>::makeEmpty()} {}
+      : promise_{folly::Promise<T>::makeEmpty()} {}
 
   ~VeloxPromise() {
-    if (!this->isFulfilled()) {
+    if (!promise_.isFulfilled()) {
       LOG(WARNING) << "PROMISE: Unfulfilled promise is being deleted. Context: "
                    << context_;
     }
@@ -58,8 +54,16 @@ class VeloxPromise : public folly::Promise<T> {
     return VeloxPromise<T>{EmptyTag{}};
   }
 
+  void setValue() {
+    promise_.setValue();
+  }
+
+  bool valid() const noexcept {
+    return promise_.valid();
+  }
+
  private:
-  /// Optional parameter to understand where this promise was created.
+  folly::Promise<T> promise_;
   std::string context_;
 };
 
@@ -74,11 +78,9 @@ using ContinueFuture = folly::SemiFuture<folly::Unit>;
 /// exception throwing and stack unwinding thus performance issue.  See
 /// https://github.com/prestodb/presto/issues/26094 for details.
 inline std::pair<ContinuePromise, ContinueFuture>
-makeVeloxContinuePromiseContract(std::string&& promiseContext) {
-  auto p =
-      ContinuePromise{ContinuePromise::ContextTag{}, std::move(promiseContext)};
-  auto f = p.getSemiFuture();
-  return {std::move(p), std::move(f)};
+makeVeloxContinuePromiseContract(std::string&& context) {
+  auto [p, f] = folly::makePromiseContract<folly::Unit>();
+  return {ContinuePromise{std::move(p), std::move(context)}, std::move(f)};
 }
 
 } // namespace facebook::velox
