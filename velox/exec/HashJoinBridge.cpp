@@ -312,8 +312,10 @@ std::optional<HashJoinBridge::HashBuildResult> HashJoinBridge::tableOrFuture(
   if (buildResult_.has_value()) {
     return buildResult_.value();
   }
-  promises_.emplace_back("HashJoinBridge::tableOrFuture");
-  *future = promises_.back().getSemiFuture();
+  auto [p, f] =
+      makeVeloxContinuePromiseContract("HashJoinBridge::tableOrFuture");
+  promises_.emplace_back(std::move(p));
+  *future = std::move(f);
   return std::nullopt;
 }
 
@@ -377,8 +379,10 @@ std::optional<HashJoinBridge::SpillInput> HashJoinBridge::spillInputOrFuture(
   // build shall just wait.
   if (buildResult_.has_value()) {
     VELOX_CHECK(!restoringSpillPartitionId_.has_value());
-    promises_.emplace_back("HashJoinBridge::spillInputOrFuture");
-    *future = promises_.back().getSemiFuture();
+    auto [p, f] =
+        makeVeloxContinuePromiseContract("HashJoinBridge::spillInputOrFuture");
+    promises_.emplace_back(std::move(p));
+    *future = std::move(f);
     return std::nullopt;
   }
 

@@ -478,8 +478,9 @@ bool OutputBuffer::enqueue(
       common::testutil::TestValue::adjust(
           "facebook::velox::exec::OutputBuffer::enqueue", this);
 
-      promises_.emplace_back("OutputBuffer::enqueue");
-      *future = promises_.back().getSemiFuture();
+      auto [p, f] = makeVeloxContinuePromiseContract("OutputBuffer::enqueue");
+      promises_.emplace_back(std::move(p));
+      *future = std::move(f);
       blocked = true;
     }
   }

@@ -25,16 +25,24 @@ namespace facebook::velox {
 template <class T>
 class VeloxPromise : public folly::Promise<T> {
  public:
-  explicit VeloxPromise(const std::string& context)
-      : folly::Promise<T>(), context_(context) {
-    if (context.empty()) {
+  struct ContextTag {
+    explicit ContextTag() = default;
+  };
+
+  struct EmptyTag {
+    explicit EmptyTag() = default;
+  };
+
+  explicit VeloxPromise(ContextTag, std::string&& context)
+      : folly::Promise<T>{}, context_{std::move(context)} {
+    if (context_.empty()) {
       LOG(WARNING)
           << "PROMISE: VeloxPromise must be constructed with a context.";
     }
   }
 
-  explicit VeloxPromise(folly::futures::detail::EmptyConstruct) noexcept
-      : folly::Promise<T>(folly::Promise<T>::makeEmpty()) {}
+  explicit VeloxPromise(EmptyTag) noexcept
+      : folly::Promise<T>{folly::Promise<T>::makeEmpty()} {}
 
   ~VeloxPromise() {
     if (!this->isFulfilled()) {
@@ -43,18 +51,11 @@ class VeloxPromise : public folly::Promise<T> {
     }
   }
 
-  VeloxPromise(VeloxPromise<T>&& other) noexcept
-      : folly::Promise<T>(std::move(other)),
-        context_(std::move(other.context_)) {}
-
-  VeloxPromise& operator=(VeloxPromise<T>&& other) noexcept {
-    folly::Promise<T>::operator=(std::move(other));
-    context_ = std::move(other.context_);
-    return *this;
-  }
+  VeloxPromise(VeloxPromise<T>&& other) noexcept = default;
+  VeloxPromise& operator=(VeloxPromise<T>&& other) noexcept = default;
 
   static VeloxPromise makeEmpty() noexcept {
-    return VeloxPromise<T>(folly::futures::detail::EmptyConstruct{});
+    return VeloxPromise<T>{EmptyTag{}};
   }
 
  private:
@@ -72,11 +73,12 @@ using ContinueFuture = folly::SemiFuture<folly::Unit>;
 /// function to overwrite the promise.  Overwriting valid promise would cause
 /// exception throwing and stack unwinding thus performance issue.  See
 /// https://github.com/prestodb/presto/issues/26094 for details.
-static inline std::pair<ContinuePromise, ContinueFuture>
-makeVeloxContinuePromiseContract(const std::string& promiseContext) {
-  auto p = ContinuePromise(promiseContext);
+inline std::pair<ContinuePromise, ContinueFuture>
+makeVeloxContinuePromiseContract(std::string&& promiseContext) {
+  auto p =
+      ContinuePromise{ContinuePromise::ContextTag{}, std::move(promiseContext)};
   auto f = p.getSemiFuture();
-  return std::make_pair(std::move(p), std::move(f));
+  return {std::move(p), std::move(f)};
 }
 
 } // namespace facebook::velox
