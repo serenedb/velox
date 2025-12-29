@@ -25,8 +25,6 @@ namespace facebook::velox {
 template <class T>
 class VeloxPromise : public folly::Promise<T> {
  public:
-  VeloxPromise() : folly::Promise<T>() {}
-
   explicit VeloxPromise(const std::string& context)
       : folly::Promise<T>(), context_(context) {
     if (context.empty()) {
