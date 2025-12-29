@@ -168,8 +168,9 @@ bool QueryCtx::checkUnderArbitration(ContinueFuture* future) {
     VELOX_CHECK(arbitrationPromises_.empty());
     return false;
   }
-  arbitrationPromises_.emplace_back("QueryCtx::waitArbitration");
-  *future = arbitrationPromises_.back().getSemiFuture();
+  auto [p, f] = makeVeloxContinuePromiseContract("QueryCtx::waitArbitration");
+  arbitrationPromises_.emplace_back(std::move(p));
+  *future = std::move(f);
   return true;
 }
 

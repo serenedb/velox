@@ -35,8 +35,10 @@ bool LocalExchangeMemoryManager::increaseMemoryUsage(
   bufferedBytes_ += added;
 
   if (bufferedBytes_ >= maxBufferSize_) {
-    promises_.emplace_back("LocalExchangeMemoryManager::updateMemoryUsage");
-    *future = promises_.back().getSemiFuture();
+    auto [p, f] = makeVeloxContinuePromiseContract(
+        "LocalExchangeMemoryManager::updateMemoryUsage");
+    promises_.emplace_back(std::move(p));
+    *future = std::move(f);
     return true;
   }
 
@@ -181,8 +183,10 @@ BlockingReason LocalExchangeQueue::next(
         return BlockingReason::kNotBlocked;
       }
 
-      consumerPromises_.emplace_back("LocalExchangeQueue::next");
-      *future = consumerPromises_.back().getSemiFuture();
+      auto [p, f] =
+          makeVeloxContinuePromiseContract("LocalExchangeQueue::next");
+      consumerPromises_.emplace_back(std::move(p));
+      *future = std::move(f);
 
       return BlockingReason::kWaitForProducer;
     }

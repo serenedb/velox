@@ -37,6 +37,7 @@ namespace facebook::velox {
 // consumer will make it instead. If multiple consumers request the
 // same item, exactly one gets it. Propagates exceptions to the
 // consumer.
+// TODO(mbkkt) Optimize memory layout.
 template <typename Item>
 class AsyncSource {
  public:
@@ -82,7 +83,7 @@ class AsyncSource {
       std::lock_guard<std::mutex> l(mutex_);
       exception_ = std::current_exception();
     }
-    std::unique_ptr<ContinuePromise> promise;
+    std::optional<ContinuePromise> promise;
     {
       std::lock_guard<std::mutex> l(mutex_);
       VELOX_CHECK_NULL(item_);
@@ -92,7 +93,7 @@ class AsyncSource {
       making_ = false;
       promise.swap(promise_);
     }
-    if (promise != nullptr) {
+    if (promise) {
       promise->setValue();
     }
   }
@@ -121,8 +122,8 @@ class AsyncSource {
         return nullptr;
       }
       if (making_) {
-        promise_ = std::make_unique<ContinuePromise>("AsyncSource::move");
-        wait = promise_->getSemiFuture();
+        std::tie(promise_, wait) =
+            makeVeloxContinuePromiseContract("AsyncSource::move");
       } else {
         if (!make_) {
           return nullptr;
@@ -190,8 +191,8 @@ class AsyncSource {
     {
       std::lock_guard<std::mutex> l(mutex_);
       if (making_) {
-        promise_ = std::make_unique<ContinuePromise>("AsyncSource::close");
-        wait = promise_->getSemiFuture();
+        std::tie(promise_, wait) =
+            makeVeloxContinuePromiseContract("AsyncSource::close");
       } else if (make_) {
         make_ = nullptr;
       }
@@ -222,7 +223,7 @@ class AsyncSource {
   mutable std::mutex mutex_;
   // True if 'prepare() is making the item.
   bool making_{false};
-  std::unique_ptr<ContinuePromise> promise_;
+  std::optional<ContinuePromise> promise_;
   std::unique_ptr<Item> item_;
   std::function<std::unique_ptr<Item>()> make_;
   std::exception_ptr exception_;

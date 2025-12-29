@@ -963,7 +963,7 @@ void SharedArbitrator::startAndWaitGlobalArbitration(ArbitrationOperation& op) {
   checkGlobalArbitrationEnabled();
   checkIfTimeout(op);
 
-  std::unique_ptr<ArbitrationWait> arbitrationWait;
+  ArbitrationWait arbitrationWait{nullptr, ContinuePromise::makeEmpty()};
   ContinueFuture arbitrationWaitFuture{ContinueFuture::makeEmpty()};
   uint64_t allocatedBytes{0};
   {
@@ -976,15 +976,15 @@ void SharedArbitrator::startAndWaitGlobalArbitration(ArbitrationOperation& op) {
     if (allocatedBytes > 0) {
       VELOX_CHECK_GE(allocatedBytes, op.requestBytes());
     } else {
-      arbitrationWait = std::make_unique<ArbitrationWait>(
-          &op,
-          ContinuePromise{fmt::format(
+      auto [p, f] = makeVeloxContinuePromiseContract(
+          fmt::format(
               "{} wait for memory arbitration with {} request bytes",
               op.participant()->name(),
-              succinctBytes(op.requestBytes()))});
-      arbitrationWaitFuture = arbitrationWait->resumePromise.getSemiFuture();
+              succinctBytes(op.requestBytes())));
+      arbitrationWait = {&op, std::move(p)};
+      arbitrationWaitFuture = std::move(f);
       globalArbitrationWaiters_.emplace(
-          op.participant()->id(), arbitrationWait.get());
+          op.participant()->id(), &arbitrationWait);
       op.participant()->setPendingArbitrationGrowCapacity(op.requestBytes());
     }
   }
@@ -997,7 +997,6 @@ void SharedArbitrator::startAndWaitGlobalArbitration(ArbitrationOperation& op) {
     SCOPE_EXIT {
       op.participant()->clearGlobalArbitrationGrowCapacity();
     };
-    VELOX_CHECK_NOT_NULL(arbitrationWait);
     op.recordGlobalArbitrationStartTime();
     wakeupGlobalArbitrationThread();
 
@@ -1012,7 +1011,7 @@ void SharedArbitrator::startAndWaitGlobalArbitration(ArbitrationOperation& op) {
       removeGlobalArbitrationWaiter(op.participant()->id());
     }
 
-    allocatedBytes = arbitrationWait->allocatedBytes;
+    allocatedBytes = arbitrationWait.allocatedBytes;
     if (allocatedBytes == 0) {
       checkIfAborted(op);
       checkIfTimeout(op);

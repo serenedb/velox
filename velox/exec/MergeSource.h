@@ -83,8 +83,8 @@ class MergeJoinSource {
  private:
   // Wait consumer to fetch next batch of data.
   BlockingReason waitForConsumer(ContinueFuture* future) {
-    producerPromise_ = ContinuePromise("MergeJoinSource::waitForConsumer");
-    *future = producerPromise_->getSemiFuture();
+    std::tie(producerPromise_, *future) =
+        makeVeloxContinuePromiseContract("MergeJoinSource::waitForConsumer");
     return BlockingReason::kWaitForConsumer;
   }
 
