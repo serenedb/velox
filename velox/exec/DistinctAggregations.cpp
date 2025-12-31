@@ -32,10 +32,12 @@ class TypedDistinctAggregations : public DistinctAggregations {
       : pool_{pool},
         aggregates_{std::move(aggregates)},
         inputs_{aggregates_[0]->inputs},
+        constantInputs_{aggregates_[0]->constantInputs},
         inputType_(
             TypedDistinctAggregations::makeInputTypeForAccumulator(
                 inputType,
-                inputs_)),
+                inputs_,
+                constantInputs_)),
         spillType_(ARRAY(inputType_)),
         singleInputAggregate_(inputs_.size() == 1) {}
 
@@ -176,9 +178,13 @@ class TypedDistinctAggregations : public DistinctAggregations {
 
   static TypePtr makeInputTypeForAccumulator(
       const RowTypePtr& rowType,
-      const std::vector<column_index_t>& inputChannels) {
+      const std::vector<column_index_t>& inputChannels,
+      const std::vector<VectorPtr>& constantInputs) {
     const auto numInputChannels = inputChannels.size();
     if (numInputChannels == 1) {
+      if (inputChannels[0] == kConstantChannel) {
+        return constantInputs[0]->type();
+      }
       return rowType->childAt(inputChannels[0]);
     }
 
@@ -187,21 +193,35 @@ class TypedDistinctAggregations : public DistinctAggregations {
     types.reserve(numInputChannels);
     std::vector<std::string> names;
     names.reserve(numInputChannels);
-    for (column_index_t inputChannel : inputChannels) {
-      names.emplace_back(rowType->nameOf(inputChannel));
-      types.emplace_back(rowType->childAt(inputChannel));
+    for (size_t i = 0; i < inputChannels.size(); ++i) {
+      if (inputChannels[i] == kConstantChannel) {
+        names.emplace_back(fmt::format("c{}", i));
+        types.emplace_back(constantInputs[i]->type());
+      } else {
+        names.emplace_back(rowType->nameOf(inputChannels[i]));
+        types.emplace_back(rowType->childAt(inputChannels[i]));
+      }
     }
     return ROW(std::move(names), std::move(types));
   }
 
   VectorPtr makeInputForAccumulator(const RowVectorPtr& input) const {
     if (singleInputAggregate_) {
+      if (inputs_[0] == kConstantChannel) {
+        return BaseVector::wrapInConstant(
+            input->size(), 0, constantInputs_[0]);
+      }
       return input->childAt(inputs_[0]);
     }
 
     std::vector<VectorPtr> newChildren(inputs_.size());
     for (int i = 0; i < inputs_.size(); ++i) {
-      newChildren[i] = input->childAt(inputs_[i]);
+      if (inputs_[i] == kConstantChannel) {
+        newChildren[i] = BaseVector::wrapInConstant(
+            input->size(), 0, constantInputs_[i]);
+      } else {
+        newChildren[i] = input->childAt(inputs_[i]);
+      }
     }
     return std::make_shared<RowVector>(
         pool_, inputType_, nullptr, input->size(), newChildren);
@@ -253,6 +273,7 @@ class TypedDistinctAggregations : public DistinctAggregations {
   memory::MemoryPool* const pool_;
   const std::vector<AggregateInfo*> aggregates_;
   const std::vector<column_index_t> inputs_;
+  const std::vector<VectorPtr> constantInputs_;
   const TypePtr inputType_;
   const TypePtr spillType_;
   const bool singleInputAggregate_;
@@ -288,7 +309,9 @@ std::unique_ptr<DistinctAggregations> DistinctAggregations::create(
         aggregates, inputType, pool);
   }
 
-  const auto type = inputType->childAt(aggregates[0]->inputs[0]);
+  const auto type = aggregates[0]->inputs[0] == kConstantChannel
+      ? aggregates[0]->constantInputs[0]->type()
+      : inputType->childAt(aggregates[0]->inputs[0]);
 
   if (type->providesCustomComparison()) {
     return VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
