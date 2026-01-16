@@ -566,7 +566,7 @@ class ConnectorFactory {
 
   virtual std::shared_ptr<Connector> newConnector(
       const std::string& id,
-      config::ConfigPtr config,
+      std::shared_ptr<const config::ConfigBase> config,
       folly::Executor* ioExecutor = nullptr,
       folly::Executor* cpuExecutor = nullptr) = 0;
 

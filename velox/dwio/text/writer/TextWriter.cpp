@@ -80,7 +80,7 @@ TextWriter::TextWriter(
                       folly::to<std::string>(folly::Random::rand64()))),
               options->defaultFlushCount)),
       headerLineCount_(options->headerLineCount),
-      serDeOptions_(serDeOptions) {
+      serDeOptions_(options->serDeOptions) {
   VELOX_CHECK_LE(headerLineCount_, 1, "Header line count must be <= 1");
 }
 
@@ -142,6 +142,7 @@ void TextWriter::write(const VectorPtr& data) {
     }
 
     bufferedWriterSink_->write((char)serDeOptions_.newLine);
+    headerLineCount_ = 0;
   }
 
   const RowVector* dataRowVector = data->as<RowVector>();

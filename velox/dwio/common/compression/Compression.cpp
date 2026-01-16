@@ -632,27 +632,27 @@ std::unique_ptr<Compressor> createCompressor(
     case CompressionKind::CompressionKind_NONE:
       return nullptr;
     case CompressionKind::CompressionKind_ZLIB: {
-      XLOG_FIRST_N(INFO, 1) << fmt::format(
-          "Initialized zlib compressor with compression level {}",
-          options.format.zlib.compressionLevel);
+      // XLOG_FIRST_N(INFO, 1) << fmt::format(
+      //     "Initialized zlib compressor with compression level {}",
+      //     options.format.zlib.compressionLevel);
       return std::make_unique<ZlibCompressor>(
           options.format.zlib.compressionLevel,
           options.format.zlib.windowBits,
           false);
     }
     case CompressionKind::CompressionKind_GZIP: {
-      XLOG_FIRST_N(INFO, 1) << fmt::format(
-          "Initialized zlib compressor with compression level {}",
-          options.format.zlib.compressionLevel);
+      // XLOG_FIRST_N(INFO, 1) << fmt::format(
+      //     "Initialized zlib compressor with compression level {}",
+      //     options.format.zlib.compressionLevel);
       return std::make_unique<ZlibCompressor>(
           options.format.zlib.compressionLevel,
           options.format.zlib.windowBits,
           true);
     }
     case CompressionKind::CompressionKind_ZSTD: {
-      XLOG_FIRST_N(INFO, 1) << fmt::format(
-          "Initialized zstd compressor with compression level {}",
-          options.format.zstd.compressionLevel);
+      // XLOG_FIRST_N(INFO, 1) << fmt::format(
+      //     "Initialized zstd compressor with compression level {}",
+      //     options.format.zstd.compressionLevel);
       return std::make_unique<ZstdCompressor>(
           options.format.zstd.compressionLevel);
     }

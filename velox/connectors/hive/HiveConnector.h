@@ -87,7 +87,7 @@ class HiveConnectorFactory : public ConnectorFactory {
 
   std::shared_ptr<Connector> newConnector(
       const std::string& id,
-      config::ConfigPtr config,
+      std::shared_ptr<const config::ConfigBase> config,
       folly::Executor* ioExecutor = nullptr,
       [[maybe_unused]] folly::Executor* cpuExecutor = nullptr) override {
     return std::make_shared<HiveConnector>(id, config, ioExecutor);

@@ -322,6 +322,8 @@ LocalWriteFile::LocalWriteFile(
   int32_t flags = O_WRONLY | O_CREAT;
   if (shouldThrowOnFileAlreadyExists) {
     flags |= O_EXCL;
+  } else {
+    flags |= O_TRUNC;
   }
 #ifdef linux
   if (!bufferIo) {

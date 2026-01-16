@@ -30,6 +30,7 @@ struct WriterOptions : public dwio::common::WriterOptions {
   int64_t defaultFlushCount = 10 << 10;
   uint8_t headerLineCount =
       0; // number of lines in the header, currently only support 0 or 1
+  SerDeOptions serDeOptions;
 };
 
 /// Encodes Velox vectors in TextFormat and writes into a FileSink.
