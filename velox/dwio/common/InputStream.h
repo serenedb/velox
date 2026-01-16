@@ -77,7 +77,7 @@ class InputStream {
    * @param length the number of bytes to read.
    * @param offset the position in the stream to read from.
    */
-  virtual void read(void*, uint64_t, uint64_t, LogType) = 0;
+  virtual void read(void*, uint64_t&, uint64_t, LogType) = 0;
 
   /**
    * Read starting at offset into buffers, filling the buffers left to right. A
@@ -92,13 +92,16 @@ class InputStream {
       const std::vector<folly::Range<char*>>& buffers,
       uint64_t offset,
       LogType logType) {
-    uint64_t bufferOffset = 0;
-    for (auto& range : buffers) {
-      if (range.data()) {
-        read(range.data(), range.size(), offset + bufferOffset, logType);
-      }
-      bufferOffset += range.size();
-    }
+    // TODO: make API support reference to buffer to change its length
+    VELOX_NYI("readToBuffer is not supported yet");
+    // uint64_t bufferOffset = 0;
+    // for (auto& range : buffers) {
+    //  size_t length = range.size();
+    //  if (range.data()) {
+    //    read(range.data(), length, offset + bufferOffset, logType);
+    //  }
+    //  bufferOffset += range.size();
+    // }
   }
 
   /// Like read() with the same arguments but returns the result or
@@ -157,7 +160,7 @@ class ReadFileInputStream final : public InputStream {
     return readFile_->getNaturalReadSize();
   }
 
-  void read(void*, uint64_t, uint64_t, LogType) override;
+  void read(void*, uint64_t&, uint64_t, LogType) override;
 
   void read(
       const std::vector<folly::Range<char*>>& buffers,
