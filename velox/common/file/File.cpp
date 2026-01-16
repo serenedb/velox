@@ -309,7 +309,8 @@ LocalWriteFile::LocalWriteFile(
     std::string_view path,
     bool shouldCreateParentDirectories,
     bool shouldThrowOnFileAlreadyExists,
-    bool bufferIo)
+    bool bufferIo,
+    bool shouldTruncateIfExists)
     : path_(path) {
   const auto dir = fs::path(path_).parent_path();
   if (shouldCreateParentDirectories && !fs::exists(dir)) {
@@ -322,6 +323,8 @@ LocalWriteFile::LocalWriteFile(
   int32_t flags = O_WRONLY | O_CREAT;
   if (shouldThrowOnFileAlreadyExists) {
     flags |= O_EXCL;
+  } else if (shouldTruncateIfExists) {
+    flags |= O_TRUNC;
   }
 #ifdef linux
   if (!bufferIo) {

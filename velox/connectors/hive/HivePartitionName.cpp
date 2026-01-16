@@ -82,6 +82,10 @@ std::string HivePartitionName::toName(Timestamp value, const TypePtr& type) {
   return result;
 }
 
+  std::string HivePartitionName::toName(StringView value, const TypePtr& type) {
+    return value.str();
+  }
+
 std::string HivePartitionName::partitionName(
     uint32_t partitionId,
     const RowVectorPtr& partitionValues,
