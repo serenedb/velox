@@ -67,8 +67,7 @@ std::optional<std::string> toTextStr<Timestamp>(Timestamp val) {
 TextWriter::TextWriter(
     RowTypePtr schema,
     std::unique_ptr<dwio::common::FileSink> sink,
-    const std::shared_ptr<text::WriterOptions>& options,
-    const SerDeOptions& serDeOptions)
+    const std::shared_ptr<text::WriterOptions>& options)
     : schema_(std::move(schema)),
       bufferedWriterSink_(
           std::make_unique<BufferedWriterSink>(
