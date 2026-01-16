@@ -158,11 +158,11 @@ HiveDataSource::HiveDataSource(
       readColumnTypes.push_back(input->type());
     }
     remainingFilterSubfields_ = remainingFilterExpr->extractSubfields();
-    if (VLOG_IS_ON(1)) {
-      VLOG(1) << fmt::format(
-          "Extracted subfields from remaining filter: [{}]",
-          fmt::join(remainingFilterSubfields_, ", "));
-    }
+    // if (VLOG_IS_ON(1)) {
+    //   VLOG(1) << fmt::format(
+    //       "Extracted subfields from remaining filter: [{}]",
+    //       fmt::join(remainingFilterSubfields_, ", "));
+    // }
     for (auto& subfield : remainingFilterSubfields_) {
       const auto& name = getColumnName(subfield);
       auto it = subfields_.find(name);

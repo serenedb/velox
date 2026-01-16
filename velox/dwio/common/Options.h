@@ -756,6 +756,7 @@ struct WriterOptions {
   velox::memory::MemoryPool* memoryPool{nullptr};
   const velox::common::SpillConfig* spillConfig{nullptr};
   tsan_atomic<bool>* nonReclaimableSection{nullptr};
+  FileFormat fileFormat{FileFormat::UNKNOWN};
 
   /// A ready-to-use default memory reclaimer factory. It shall be provided by
   /// the system that creates writers to ensure a smooth memory system

@@ -70,7 +70,7 @@ ReadFileInputStream::ReadFileInputStream(
 
 void ReadFileInputStream::read(
     void* buf,
-    uint64_t length,
+    uint64_t& length,
     uint64_t offset,
     MetricsLog::MetricsType purpose) {
   VELOX_CHECK_NOT_NULL(buf);
@@ -86,14 +86,8 @@ void ReadFileInputStream::read(
     stats_->incTotalScanTime(readTimeUs * 1'000);
   }
 
-  VELOX_CHECK_EQ(
-      readData.size(),
-      length,
-      "Should read exactly as requested. File name: {}, offset: {}, length: {}, read: {}",
-      getName(),
-      offset,
-      length,
-      readData.size());
+  VELOX_CHECK_LE(readData.size(), length);
+  length = readData.size();
 }
 
 void ReadFileInputStream::read(

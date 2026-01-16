@@ -2624,3 +2624,11 @@ struct fmt::formatter<
     return formatter<string_view>::format(k->toString(), ctx);
   }
 };
+
+template <>
+struct fmt::formatter<facebook::velox::Type> : fmt::formatter<string_view> {
+  template <typename FormatContext>
+  auto format(const facebook::velox::Type& k, FormatContext& ctx) const {
+    return formatter<string_view>::format(k.toString(), ctx);
+  }
+};

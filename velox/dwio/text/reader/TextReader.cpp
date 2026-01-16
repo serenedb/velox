@@ -285,6 +285,12 @@ uint64_t TextRowReader::next(
         rowVecPtr->setNull(static_cast<vector_size_t>(i), true);
       }
     }
+
+    if (atEOF_ && getLength() == std::numeric_limits<uint64_t>::max()) {
+      // if it's a streaming this is a redundant row which means EOF
+      break;
+    }
+
     (void)skipLine();
     ++currentRow_;
     ++rowsRead;
