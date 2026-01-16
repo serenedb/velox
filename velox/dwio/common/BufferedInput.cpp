@@ -70,7 +70,9 @@ void BufferedInput::load(const LogType logType) {
     }
   } else {
     for (const auto& region : regions_) {
-      readToBuffer(region.offset, allocate(region), logType);
+      // TODO: make API support reference to buffer to change its length
+      VELOX_NYI("readToBuffer is not supported yet");
+      // readToBuffer(region.offset, allocated, logType);
     }
   }
 
@@ -84,8 +86,11 @@ void BufferedInput::readToBuffer(
     const LogType logType) {
   uint64_t usec = 0;
   {
-    MicrosecondTimer timer(&usec);
-    input_->read(allocated.data(), allocated.size(), offset, logType);
+    // TODO: make API support reference to buffer to change its length
+    VELOX_NYI("readToBuffer is not supported yet");
+
+    // MicrosecondTimer timer(&usec);
+    // input_->read(allocated.data(), allocated.size(), offset, logType);
   }
   if (auto* stats = input_->getStats()) {
     stats->read().increment(allocated.size());
