@@ -37,12 +37,6 @@ set(
 velox_resolve_dependency_url(BOOST)
 message(STATUS "Building boost from source")
 
-# required for Boost::thread
-if(NOT TARGET Threads::Threads)
-  set(THREADS_PREFER_PTHREAD_FLAG ON)
-  find_package(Threads REQUIRED)
-endif()
-
 FetchContent_Declare(
   Boost
   URL ${VELOX_BOOST_SOURCE_URL}

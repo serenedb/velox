@@ -22,8 +22,6 @@ if(NOT DEFINED OPENMP_UNROLL_THRESHOLD)
   set(OPENMP_UNROLL_THRESHOLD 32 CACHE STRING "OpenMP loop unroll threshold")
 endif()
 
-find_package(OpenMP REQUIRED)
-
 function(breeze_add_openmp_test target source)
   add_executable(${target} ${source})
   target_compile_features(${target} PRIVATE cxx_std_17)
