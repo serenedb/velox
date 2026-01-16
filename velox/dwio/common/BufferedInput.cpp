@@ -70,9 +70,7 @@ void BufferedInput::load(const LogType logType) {
     }
   } else {
     for (const auto& region : regions_) {
-      // TODO: make API support reference to buffer to change its length
-      VELOX_NYI("readToBuffer is not supported yet");
-      // readToBuffer(region.offset, allocated, logType);
+      readToBuffer(region.offset, allocate(region), logType);
     }
   }
 

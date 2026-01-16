@@ -92,14 +92,15 @@ class InputStream {
       const std::vector<folly::Range<char*>>& buffers,
       uint64_t offset,
       LogType logType) {
+    // TODO: make API support reference to buffer to change its length
     VELOX_NYI("readToBuffer is not supported yet");
     // uint64_t bufferOffset = 0;
     // for (auto& range : buffers) {
-      // size_t length = range.size();
-      // if (range.data()) {
-        // read(range.data(), length, offset + bufferOffset, logType);
-      // }
-      // bufferOffset += range.size();
+    //  size_t length = range.size();
+    //  if (range.data()) {
+    //    read(range.data(), length, offset + bufferOffset, logType);
+    //  }
+    //  bufferOffset += range.size();
     // }
   }
 

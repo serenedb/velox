@@ -86,6 +86,7 @@ void ReadFileInputStream::read(
     stats_->incTotalScanTime(readTimeUs * 1'000);
   }
 
+  VELOX_CHECK_LE(readData.size(), length);
   length = readData.size();
 }
 
