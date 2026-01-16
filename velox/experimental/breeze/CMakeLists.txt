@@ -112,8 +112,6 @@ if(BUILD_METAL)
 endif()
 
 if(BUILD_TRACING)
-  find_package(Threads REQUIRED)
-
   # static library for perfetto
   include_directories(external/perfetto/sdk)
   add_library(perfetto STATIC ../../external/perfetto/sdk/perfetto.cc)

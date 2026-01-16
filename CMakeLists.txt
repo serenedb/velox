@@ -559,17 +559,7 @@ velox_resolve_dependency(glog)
 velox_set_source(fmt)
 velox_resolve_dependency(fmt 9.0.0)
 
-if(VELOX_ENABLE_COMPRESSION_LZ4)
-  find_package(lz4 REQUIRED)
-endif()
-
 if(${VELOX_BUILD_MINIMAL_WITH_DWIO} OR ${VELOX_ENABLE_HIVE_CONNECTOR})
-  # DWIO needs all sorts of stream compression libraries.
-  #
-  # TODO: make these optional and pluggable.
-  find_package(ZLIB REQUIRED)
-  find_package(zstd REQUIRED)
-  find_package(Snappy REQUIRED)
   # Ensure zstd::zstd target exists - handle different zstd package configurations
   if(NOT TARGET zstd::zstd)
     if(TARGET zstd::libzstd_static)
@@ -635,12 +625,6 @@ if(VELOX_ENABLE_GCS)
   velox_set_source(google_cloud_cpp_storage)
   velox_resolve_dependency(google_cloud_cpp_storage CONFIG 2.22.0 REQUIRED)
   add_definitions(-DVELOX_ENABLE_GCS)
-endif()
-
-# GCC needs to link a library to enable std::filesystem.
-if("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
-  # Find Threads library
-  find_package(Threads REQUIRED)
 endif()
 
 if(VELOX_BUILD_TESTING AND NOT VELOX_ENABLE_DUCKDB)
