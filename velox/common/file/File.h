@@ -378,7 +378,8 @@ class LocalWriteFile final : public WriteFile {
       std::string_view path,
       bool shouldCreateParentDirectories = false,
       bool shouldThrowOnFileAlreadyExists = true,
-      bool bufferIo = true);
+      bool bufferIo = true,
+      bool shouldTruncateIfExists = false);
 
   ~LocalWriteFile();
 
