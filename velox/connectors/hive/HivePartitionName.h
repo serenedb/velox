@@ -56,7 +56,7 @@ class HivePartitionName {
   static std::string toName(Timestamp value, const TypePtr& type);
 
   static std::string toName(StringView value, const TypePtr& type);
-  
+
   /// Build partition key-value pairs from partition values.
   /// Returns a vector of (key, value) pairs for all partition columns.
   /// @tparam F A callable that converts a value to a partition string.

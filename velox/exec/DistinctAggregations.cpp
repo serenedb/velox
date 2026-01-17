@@ -194,8 +194,7 @@ class TypedDistinctAggregations : public DistinctAggregations {
   VectorPtr makeInputForAccumulator(const RowVectorPtr& input) const {
     if (isSingleInputAggregate()) {
       if (inputs_[0] == kConstantChannel) {
-        return BaseVector::wrapInConstant(
-            input->size(), 0, constantInputs_[0]);
+        return BaseVector::wrapInConstant(input->size(), 0, constantInputs_[0]);
       }
       return input->childAt(inputs_[0]);
     }
@@ -203,8 +202,8 @@ class TypedDistinctAggregations : public DistinctAggregations {
     std::vector<VectorPtr> newChildren(inputs_.size());
     for (int i = 0; i < inputs_.size(); ++i) {
       if (inputs_[i] == kConstantChannel) {
-        newChildren[i] = BaseVector::wrapInConstant(
-            input->size(), 0, constantInputs_[i]);
+        newChildren[i] =
+            BaseVector::wrapInConstant(input->size(), 0, constantInputs_[i]);
       } else {
         newChildren[i] = input->childAt(inputs_[i]);
       }
