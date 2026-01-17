@@ -52,8 +52,7 @@ std::vector<std::string_view> PagedOutputStream::createPage() {
 
   encryptionBuffer_ = encryptor_->encrypt(
       std::string_view(compressed.begin() + pageHeaderSize_, compressed.end()));
-  updateSize(
-      const_cast<char*>(compressed.data()), encryptionBuffer_->length());
+  updateSize(const_cast<char*>(compressed.data()), encryptionBuffer_->length());
   return {
       std::string_view(compressed.data(), pageHeaderSize_),
       std::string_view(

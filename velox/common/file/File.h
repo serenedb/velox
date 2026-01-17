@@ -69,9 +69,9 @@ struct FileIoContext {
         ioTracer(std::move(tracer)) {}
 };
 
-// TODO: make remake all API : make it pass references for length, because 
-// it's possible to read less data than requested and it's supposed to be 
-// reported back to the caller. 
+// TODO: make remake all API : make it pass references for length, because
+// it's possible to read less data than requested and it's supposed to be
+// reported back to the caller.
 
 // A read-only file.  All methods in this object should be thread safe.
 class ReadFile {
