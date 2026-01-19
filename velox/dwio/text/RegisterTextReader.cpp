@@ -21,7 +21,7 @@ namespace facebook::velox::text {
 
 std::unique_ptr<dwio::common::Reader> TextReaderFactory::createReader(
     std::unique_ptr<BufferedInput> input,
-    const ReaderOptions& options) {
+    const dwio::common::ReaderOptions& options) {
   return std::make_unique<text::TextReader>(options, std::move(input));
 }
 
