@@ -246,7 +246,7 @@ uint64_t TextRowReader::next(
 
   vector_size_t rowsRead = 0;
   const auto initialPos = pos_;
-  const auto& rowType = std::dynamic_pointer_cast<const RowType>(t->type());
+  const auto& rowType = t->type()->asRow();
   std::string_view errorColumnName;
   const Type* errorColumnType = nullptr;
   while (!atEOF_ && rowsRead < rows) {
@@ -281,8 +281,8 @@ uint64_t TextRowReader::next(
       bool hadErrorBefore = rowHasError_;
       readElement(ct->type(), rct->type(), childVector, rowsRead, delim);
       if (rowHasError_ && !hadErrorBefore) {
-        errorColumnName = rowType->nameOf(i);
-        errorColumnType = rowType->childAt(i).get();
+        errorColumnName = rowType.nameOf(i);
+        errorColumnType = rowType.childAt(i).get();
       }
     }
 
@@ -314,14 +314,16 @@ uint64_t TextRowReader::next(
           getStreamNameData(),
           contents_->rejectLimit,
           rejectedRows_};
-      contents_->errorHandler(err);
-      if (err.isError()) {
-        throw MalformedRowException(
-            err.rowNumber,
-            std::string{err.columnName},
-            std::string{err.value},
-            std::string{err.fileName});
+      if (contents_->onRowReject) {
+        contents_->onRowReject(err);
       }
+      VELOX_CHECK(
+          !err.isError(),
+          "Malformed row {} in file {}, column {}: {}",
+          err.rowNumber,
+          errorColumnName,
+          err.value,
+          err.fileName);
     } else {
       ++rowsRead;
     }
@@ -1637,7 +1639,7 @@ TextReader::TextReader(
   // Set the SerDe options.
   contents_->serDeOptions = options_.serDeOptions();
   contents_->rejectLimit = options_.rejectLimit();
-  contents_->errorHandler = options_.errorHandler();
+  contents_->onRowReject = options_.onRowReject();
   if (contents_->serDeOptions.isEscaped) {
     for (auto delim : contents_->serDeOptions.separators) {
       contents_->needsEscape.at(delim) = true;

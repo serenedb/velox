@@ -39,91 +39,8 @@ using dwio::common::SerDeOptions;
 using dwio::common::TypeWithId;
 using memory::MemoryPool;
 
-class MalformedRowException : public std::runtime_error {
- public:
-  MalformedRowException(
-      uint64_t rowNumber,
-      std::string columnName,
-      std::string value,
-      std::string fileName)
-      : std::runtime_error(
-            fmt::format(
-                "Malformed row {} in file {}, column {}: \"{}\"",
-                rowNumber,
-                fileName,
-                columnName,
-                value)),
-        rowNumber_(rowNumber),
-        columnName_(std::move(columnName)),
-        value_(std::move(value)),
-        fileName_(std::move(fileName)) {}
-
-  uint64_t rowNumber() const {
-    return rowNumber_;
-  }
-
-  std::string_view columnName() const {
-    return columnName_;
-  }
-
-  std::string_view value() const {
-    return value_;
-  }
-
-  std::string_view fileName() const {
-    return fileName_;
-  }
-
- private:
-  uint64_t rowNumber_;
-  std::string columnName_;
-  std::string value_;
-  std::string fileName_;
-};
-
-struct RejectedRow {
-  uint64_t rowNumber;
-  std::string_view columnName;
-  const Type& columnType;
-  std::string_view value;
-  std::string_view fileName;
-  uint64_t rejectLimit;
-  uint64_t rejectedRows;
-
-  bool isError() const {
-    return rejectedRows > rejectLimit;
-  }
-};
-
-using ErrorHandler = std::function<void(const RejectedRow&)>;
-
-class ReaderOptions : public dwio::common::ReaderOptions {
- public:
-  explicit ReaderOptions(velox::memory::MemoryPool* pool)
-      : dwio::common::ReaderOptions(pool) {}
-
-  ReaderOptions& setRejectLimit(uint64_t limit) {
-    rejectLimit_ = limit;
-    return *this;
-  }
-
-  uint64_t rejectLimit() const {
-    return rejectLimit_;
-  }
-
-  ReaderOptions& setErrorHandler(ErrorHandler handler) {
-    errorHandler_ = std::move(handler);
-    return *this;
-  }
-
-  const ErrorHandler& errorHandler() const {
-    return errorHandler_;
-  }
-
- private:
-  uint64_t rejectLimit_{std::numeric_limits<uint64_t>::max()};
-  ErrorHandler errorHandler_;
-};
+using RejectedRow = dwio::common::RejectedRow;
+using OnRowReject = dwio::common::OnRowReject;
 
 // Shared state for a file between TextReader and TextRowReader
 struct FileContents {
@@ -143,7 +60,7 @@ struct FileContents {
   std::array<bool, 128> needsEscape;
 
   uint64_t rejectLimit{0};
-  ErrorHandler errorHandler;
+  OnRowReject onRowReject;
 };
 
 using DelimType = uint8_t;
@@ -174,7 +91,7 @@ class TextReader : public dwio::common::Reader {
   uint64_t getFileLength() const;
 
  private:
-  ReaderOptions options_;
+  dwio::common::ReaderOptions options_;
   mutable std::shared_ptr<const TypeWithId> typeWithId_;
   std::shared_ptr<FileContents> contents_;
   std::shared_ptr<const TypeWithId> schemaWithId_;
