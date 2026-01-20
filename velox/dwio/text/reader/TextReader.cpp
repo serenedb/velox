@@ -1589,7 +1589,7 @@ const std::shared_ptr<const RowType>& TextRowReader::getType() const {
 TextReader::TextReader(
     const dwio::common::ReaderOptions& options,
     std::unique_ptr<BufferedInput> input)
-    : options_{dynamic_cast<const ReaderOptions&>(options)} {
+    : options_{static_cast<const ReaderOptions&>(options)} {
   auto schema = options_.fileSchema();
   VELOX_USER_CHECK_NOT_NULL(schema, "File schema for TEXT must be set.");
 

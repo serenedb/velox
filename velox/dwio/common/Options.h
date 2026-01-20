@@ -717,8 +717,6 @@ class ReaderOptions : public io::ReaderOptions {
     allowEmptyFile_ = value;
   }
 
-  virtual ~ReaderOptions() = default;
-
  private:
   uint64_t tailLocation_;
   FileFormat fileFormat_;
