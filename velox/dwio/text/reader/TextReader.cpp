@@ -1628,7 +1628,6 @@ TextReader::TextReader(
 
   // Set the SerDe options.
   contents_->serDeOptions = options_.serDeOptions();
-  contents_->rejectLimit = options_.rejectLimit();
   contents_->onRowReject = options_.onRowReject();
   if (contents_->serDeOptions.isEscaped) {
     for (auto delim : contents_->serDeOptions.separators) {

@@ -60,7 +60,6 @@ struct FileContents {
   SerDeOptions serDeOptions;
   std::array<bool, 128> needsEscape;
 
-  uint64_t rejectLimit{0};
   OnRowReject onRowReject;
 };
 
