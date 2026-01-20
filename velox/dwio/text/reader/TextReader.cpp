@@ -310,20 +310,10 @@ uint64_t TextRowReader::next(
           currentRow_,
           errorColumnName,
           *errorColumnType,
-          errorValue_,
-          getStreamNameData(),
-          contents_->rejectLimit,
-          rejectedRows_};
+          errorValue_};
       if (contents_->onRowReject) {
         contents_->onRowReject(err);
       }
-      VELOX_CHECK(
-          !err.isError(),
-          "Malformed row {} in file {}, column {}: {}",
-          err.rowNumber,
-          errorColumnName,
-          err.value,
-          err.fileName);
     } else {
       ++rowsRead;
     }

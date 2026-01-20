@@ -334,12 +334,7 @@ void Driver::enqueueInternal() {
   } catch (const VeloxException&) {                                        \
     throw;                                                                 \
   } catch (const std::exception& e) {                                      \
-    VELOX_FAIL(                                                            \
-        "Operator::{} failed for [operator: {}, plan node ID: {}]: {}",    \
-        operatorMethod,                                                    \
-        operatorPtr->operatorType(),                                       \
-        operatorPtr->planNodeId(),                                         \
-        e.what());                                                         \
+    VeloxRuntimeError(std::current_exception(), e.what(), false);          \
   }
 
 void OpCallStatus::start(int32_t operatorId, const char* operatorMethod) {

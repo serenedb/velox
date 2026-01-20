@@ -532,13 +532,6 @@ struct RejectedRow {
   std::string_view columnName;
   const Type& columnType;
   std::string_view value;
-  std::string_view fileName;
-  uint64_t rejectLimit;
-  uint64_t rejectedRows;
-
-  bool isError() const {
-    return rejectedRows > rejectLimit;
-  }
 };
 
 using OnRowReject = std::function<void(const RejectedRow&)>;
@@ -733,15 +726,6 @@ class ReaderOptions : public io::ReaderOptions {
     allowEmptyFile_ = value;
   }
 
-  ReaderOptions& setRejectLimit(uint64_t limit) {
-    rejectLimit_ = limit;
-    return *this;
-  }
-
-  uint64_t rejectLimit() const {
-    return rejectLimit_;
-  }
-
   ReaderOptions& setOnRowReject(OnRowReject handler) {
     onRowReject_ = std::move(handler);
     return *this;
@@ -769,7 +753,6 @@ class ReaderOptions : public io::ReaderOptions {
   bool adjustTimestampToTimezone_{false};
   bool selectiveNimbleReaderEnabled_{false};
   bool allowEmptyFile_{false};
-  uint64_t rejectLimit_{std::numeric_limits<uint64_t>::max()};
   OnRowReject onRowReject_;
 };
 
