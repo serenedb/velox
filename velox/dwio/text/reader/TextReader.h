@@ -34,6 +34,7 @@ using dwio::common::BufferedInput;
 using dwio::common::ColumnSelector;
 using dwio::common::ColumnStatistics;
 using dwio::common::Mutation;
+using dwio::common::ReaderOptions;
 using dwio::common::RowReaderOptions;
 using dwio::common::SerDeOptions;
 using dwio::common::TypeWithId;
@@ -71,7 +72,7 @@ constexpr DelimType DelimTypeEOE = 2;
 class TextReader : public dwio::common::Reader {
  public:
   TextReader(
-      const dwio::common::ReaderOptions& options,
+      const ReaderOptions& options,
       std::unique_ptr<BufferedInput> input);
 
   std::optional<uint64_t> numberOfRows() const override;
