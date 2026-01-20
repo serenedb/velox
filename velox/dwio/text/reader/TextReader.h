@@ -81,57 +81,7 @@ class MalformedRowException : public std::runtime_error {
   std::string fileName_;
 };
 
-class RejectLimitExceededException : public std::runtime_error {
- public:
-  RejectLimitExceededException(
-      uint64_t rejectLimit,
-      uint64_t rejectedRows,
-      uint64_t rowNumber,
-      std::string columnName,
-      std::string value,
-      std::string fileName)
-      : std::runtime_error(
-            fmt::format(
-                "Exceeded reject limit {} with {} rejected rows in file {}",
-                rejectLimit,
-                rejectedRows,
-                fileName)),
-        rejectLimit_(rejectLimit),
-        rejectedRows_(rejectedRows),
-        rowNumber_(rowNumber),
-        columnName_(std::move(columnName)),
-        value_(std::move(value)),
-        fileName_(std::move(fileName)) {}
-
-  uint64_t rejectLimit() const {
-    return rejectLimit_;
-  }
-  uint64_t rejectedRows() const {
-    return rejectedRows_;
-  }
-  uint64_t rowNumber() const {
-    return rowNumber_;
-  }
-  std::string_view columnName() const {
-    return columnName_;
-  }
-  std::string_view value() const {
-    return value_;
-  }
-  std::string_view fileName() const {
-    return fileName_;
-  }
-
- private:
-  uint64_t rejectLimit_;
-  uint64_t rejectedRows_;
-  uint64_t rowNumber_;
-  std::string columnName_;
-  std::string value_;
-  std::string fileName_;
-};
-
-struct RowError {
+struct RejectedRow {
   uint64_t rowNumber;
   std::string_view columnName;
   const Type& columnType;
@@ -139,28 +89,13 @@ struct RowError {
   std::string_view fileName;
   uint64_t rejectLimit;
   uint64_t rejectedRows;
+
+  bool isError() const {
+    return rejectedRows > rejectLimit;
+  }
 };
 
-using ErrorHandler = std::function<void(const RowError&)>;
-
-inline ErrorHandler defaultErrorHandler() {
-  return [](const RowError& err) {
-    if (err.rejectLimit > 0 && err.rejectedRows > err.rejectLimit) {
-      throw RejectLimitExceededException(
-          err.rejectLimit,
-          err.rejectedRows,
-          err.rowNumber,
-          std::string{err.columnName},
-          std::string{err.value},
-          std::string{err.fileName});
-    }
-    throw MalformedRowException(
-        err.rowNumber,
-        std::string{err.columnName},
-        std::string{err.value},
-        std::string{err.fileName});
-  };
-}
+using ErrorHandler = std::function<void(const RejectedRow&)>;
 
 class ReaderOptions : public dwio::common::ReaderOptions {
  public:
@@ -187,7 +122,7 @@ class ReaderOptions : public dwio::common::ReaderOptions {
 
  private:
   uint64_t rejectLimit_{std::numeric_limits<uint64_t>::max()};
-  ErrorHandler errorHandler_{defaultErrorHandler()};
+  ErrorHandler errorHandler_;
 };
 
 // Shared state for a file between TextReader and TextRowReader
@@ -208,7 +143,7 @@ struct FileContents {
   std::array<bool, 128> needsEscape;
 
   uint64_t rejectLimit{0};
-  ErrorHandler errorHandler{defaultErrorHandler()};
+  ErrorHandler errorHandler;
 };
 
 using DelimType = uint8_t;

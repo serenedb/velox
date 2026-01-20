@@ -78,10 +78,8 @@ TextWriter::TextWriter(
                       options->memoryPool->name(),
                       folly::to<std::string>(folly::Random::rand64()))),
               options->defaultFlushCount)),
-      headerLineCount_(options->headerLineCount),
-      serDeOptions_(options->serDeOptions) {
-  VELOX_CHECK_LE(headerLineCount_, 1, "Header line count must be <= 1");
-}
+      header_(std::move(options->header)),
+      serDeOptions_(options->serDeOptions) {}
 
 uint8_t TextWriter::getDelimiterForDepth(uint8_t depth) const {
   VELOX_CHECK_LT(
@@ -127,21 +125,21 @@ void TextWriter::write(const VectorPtr& data) {
       "The file schema type should be equal with the input row vector type.");
 
   // write 1 row of header
-  if (headerLineCount_ == 1) {
+  if (!header_.empty()) {
+    VELOX_CHECK_EQ(header_.size(), schema_->size());
     const auto numCols = schema_->size();
     for (column_index_t col = 0; col < numCols; ++col) {
       if (col != 0) {
         bufferedWriterSink_->write((char)serDeOptions_.separators[0]);
       }
 
-      std::string escapedcolName =
-          addEscapeChar(std::string(schema_->nameOf(col)), 0);
+      std::string escapedcolName = addEscapeChar(std::move(header_[col]), 0);
       bufferedWriterSink_->write(
           escapedcolName.data(), escapedcolName.length());
     }
 
     bufferedWriterSink_->write((char)serDeOptions_.newLine);
-    headerLineCount_ = 0;
+    header_.clear();
   }
 
   const RowVector* dataRowVector = data->as<RowVector>();

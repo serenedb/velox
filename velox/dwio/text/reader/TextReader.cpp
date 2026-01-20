@@ -306,21 +306,25 @@ uint64_t TextRowReader::next(
     if (rowHasError_) {
       ++rejectedRows_;
 
-      if (rejectedRows_ > contents_->rejectLimit) {
-        RowError err{
-            currentRow_,
-            errorColumnName,
-            *errorColumnType,
-            errorValue_,
-            getStreamNameData(),
-            contents_->rejectLimit,
-            rejectedRows_};
-        contents_->errorHandler(err);
+      RejectedRow err{
+          currentRow_,
+          errorColumnName,
+          *errorColumnType,
+          errorValue_,
+          getStreamNameData(),
+          contents_->rejectLimit,
+          rejectedRows_};
+      contents_->errorHandler(err);
+      if (err.isError()) {
+        throw MalformedRowException(
+            err.rowNumber,
+            std::string{err.columnName},
+            std::string{err.value},
+            std::string{err.fileName});
       }
-      continue;
+    } else {
+      ++rowsRead;
     }
-
-    ++rowsRead;
 
     bool eof = false;
     if (contents_->compression == CompressionKind::CompressionKind_NONE) {
