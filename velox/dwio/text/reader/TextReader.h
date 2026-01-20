@@ -92,7 +92,7 @@ class TextReader : public dwio::common::Reader {
   uint64_t getFileLength() const;
 
  private:
-  dwio::common::ReaderOptions options_;
+  ReaderOptions options_;
   mutable std::shared_ptr<const TypeWithId> typeWithId_;
   std::shared_ptr<FileContents> contents_;
   std::shared_ptr<const TypeWithId> schemaWithId_;
