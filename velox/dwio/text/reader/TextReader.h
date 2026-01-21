@@ -40,6 +40,9 @@ using dwio::common::SerDeOptions;
 using dwio::common::TypeWithId;
 using memory::MemoryPool;
 
+using RejectedRow = dwio::common::RejectedRow;
+using OnRowReject = dwio::common::OnRowReject;
+
 // Shared state for a file between TextReader and TextRowReader
 struct FileContents {
   FileContents(MemoryPool& pool, const std::shared_ptr<const RowType>& t);
@@ -56,6 +59,8 @@ struct FileContents {
   dwio::common::compression::CompressionOptions compressionOptions;
   SerDeOptions serDeOptions;
   std::array<bool, 128> needsEscape;
+
+  OnRowReject onRowReject;
 };
 
 using DelimType = uint8_t;
@@ -233,6 +238,8 @@ class TextRowReader : public dwio::common::RowReader {
   uint64_t fileLength_;
   std::string ownedString_;
   std::shared_ptr<dwio::common::DataBuffer<char>> varBinBuf_;
+  bool rowHasError_ = false;
+  std::string errorValue_;
 };
 
 } // namespace facebook::velox::text

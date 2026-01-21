@@ -246,8 +246,12 @@ uint64_t TextRowReader::next(
 
   vector_size_t rowsRead = 0;
   const auto initialPos = pos_;
+  const auto& rowType = t->type()->asRow();
+  std::string_view errorColumnName;
+  const Type* errorColumnType = nullptr;
   while (!atEOF_ && rowsRead < rows) {
     resetLine();
+    rowHasError_ = false;
     uint64_t colIndex = 0;
     for (vector_size_t i = 0; i < childCount; i++) {
       if (colIndex >= reqT->size()) {
@@ -274,7 +278,12 @@ uint64_t TextRowReader::next(
       }
 
       resizeVector(childVector, rowsRead);
+      bool hadErrorBefore = rowHasError_;
       readElement(ct->type(), rct->type(), childVector, rowsRead, delim);
+      if (rowHasError_ && !hadErrorBefore) {
+        errorColumnName = rowType.nameOf(i);
+        errorColumnType = rowType.childAt(i).get();
+      }
     }
 
     // set null property
@@ -293,7 +302,14 @@ uint64_t TextRowReader::next(
 
     (void)skipLine();
     ++currentRow_;
-    ++rowsRead;
+
+    if (rowHasError_ && contents_->onRowReject) {
+      RejectedRow err{
+          currentRow_, errorColumnName, *errorColumnType, errorValue_};
+      contents_->onRowReject(err);
+    } else {
+      ++rowsRead;
+    }
 
     bool eof = false;
     if (contents_->compression == CompressionKind::CompressionKind_NONE) {
@@ -769,6 +785,8 @@ T TextRowReader::getInteger(TextRowReader& th, bool& isNull, DelimType& delim) {
   char c = str[0];
   if (c != '-' && !std::isdigit(static_cast<unsigned char>(c))) {
     isNull = true;
+    th.rowHasError_ = true;
+    th.errorValue_ = str;
     return 0;
   }
 
@@ -778,6 +796,8 @@ T TextRowReader::getInteger(TextRowReader& th, bool& isNull, DelimType& delim) {
   auto scanCount = sscanf(str.c_str(), "%" SCNd64 "%lln", &v, &scanPos);
   if (scanCount != 1 || errno == ERANGE) {
     isNull = true;
+    th.rowHasError_ = true;
+    th.errorValue_ = str;
     return 0;
   }
   if (scanPos < str.size()) {
@@ -790,6 +810,8 @@ T TextRowReader::getInteger(TextRowReader& th, bool& isNull, DelimType& delim) {
         continue;
       }
       isNull = true;
+      th.rowHasError_ = true;
+      th.errorValue_ = str;
       return 0;
     }
   }
@@ -797,6 +819,8 @@ T TextRowReader::getInteger(TextRowReader& th, bool& isNull, DelimType& delim) {
   if (!std::is_same<T, int64_t>::value) {
     if (static_cast<int64_t>(static_cast<T>(v)) != v) {
       isNull = true;
+      th.rowHasError_ = true;
+      th.errorValue_ = str;
       return 0;
     }
   }
@@ -844,6 +868,8 @@ bool TextRowReader::getBoolean(
   }
 
   isNull = true;
+  th.rowHasError_ = true;
+  th.errorValue_ = str;
   return false;
 }
 
@@ -924,6 +950,8 @@ float TextRowReader::getFloat(
 
   if (unacceptableFloatingPoint(str)) {
     isNull = true;
+    th.rowHasError_ = true;
+    th.errorValue_ = str;
     return 0.0;
   }
 
@@ -934,6 +962,8 @@ float TextRowReader::getFloat(
   auto scanCount = sscanf(str.c_str(), "%f%lln", &v, &scanPos);
   if (scanCount != 1 || scanPos < str.size()) {
     isNull = true;
+    th.rowHasError_ = true;
+    th.errorValue_ = str;
     return 0.0;
   }
   return v;
@@ -962,6 +992,8 @@ TextRowReader::getDouble(TextRowReader& th, bool& isNull, DelimType& delim) {
   // readers require upper-case values.
   if (unacceptableFloatingPoint(str)) {
     isNull = true;
+    th.rowHasError_ = true;
+    th.errorValue_ = str;
     return 0.0;
   }
 
@@ -972,18 +1004,13 @@ TextRowReader::getDouble(TextRowReader& th, bool& isNull, DelimType& delim) {
   auto scanCount = sscanf(str.c_str(), "%lf%lln", &v, &scanPos);
   if (scanCount != 1 || scanPos < str.size()) {
     isNull = true;
+    th.rowHasError_ = true;
+    th.errorValue_ = str;
     return 0.0;
   }
   return v;
 }
 
-/// TODO: Reconsider error handling strategy for malformed data
-/// Currently, all read functions convert invalid/malformed data to NULL values.
-/// This approach may produce incorrect query results, particularly for
-/// aggregate operations where a high volume of NULLs can significantly skew
-/// calculations (e.g., COUNT, AVG, SUM). Consider alternative strategies such
-/// as throwing exceptions, logging warnings, or providing configurable error
-/// handling modes.
 void TextRowReader::readElement(
     const std::shared_ptr<const Type>& t,
     const std::shared_ptr<const Type>& reqT,
@@ -1594,6 +1621,7 @@ TextReader::TextReader(
 
   // Set the SerDe options.
   contents_->serDeOptions = options_.serDeOptions();
+  contents_->onRowReject = options_.onRowReject();
   if (contents_->serDeOptions.isEscaped) {
     for (auto delim : contents_->serDeOptions.separators) {
       contents_->needsEscape.at(delim) = true;
