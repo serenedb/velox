@@ -527,6 +527,15 @@ class RowReaderOptions {
   bool passStringBuffersFromDecoder_{false};
 };
 
+struct RejectedRow {
+  uint64_t rowNumber;
+  std::string_view columnName;
+  const Type& columnType;
+  std::string_view value;
+};
+
+using OnRowReject = std::function<void(const RejectedRow&)>;
+
 /// Options for creating a Reader.
 class ReaderOptions : public io::ReaderOptions {
  public:
@@ -717,6 +726,15 @@ class ReaderOptions : public io::ReaderOptions {
     allowEmptyFile_ = value;
   }
 
+  ReaderOptions& setOnRowReject(OnRowReject handler) {
+    onRowReject_ = std::move(handler);
+    return *this;
+  }
+
+  const OnRowReject& onRowReject() const {
+    return onRowReject_;
+  }
+
  private:
   uint64_t tailLocation_;
   FileFormat fileFormat_;
@@ -735,6 +753,7 @@ class ReaderOptions : public io::ReaderOptions {
   bool adjustTimestampToTimezone_{false};
   bool selectiveNimbleReaderEnabled_{false};
   bool allowEmptyFile_{false};
+  OnRowReject onRowReject_;
 };
 
 struct WriterOptions {
