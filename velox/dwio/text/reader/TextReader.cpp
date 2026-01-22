@@ -17,6 +17,7 @@
 #include "velox/dwio/text/reader/TextReader.h"
 
 #include <boost/algorithm/string/predicate.hpp>
+#include <fast_float/fast_float.h>
 #include <string>
 
 #include "velox/common/encode/Base64.h"
@@ -131,9 +132,26 @@ FileContents::FileContents(
       fileLength{0},
       compression{CompressionKind::CompressionKind_NONE},
       compressionOptions{},
-      needsEscape{} {
+      needsEscape{},
+      isSpecialChar{} {
   needsEscape.fill(false);
   needsEscape.at(0) = true;
+  isSpecialChar.fill(false);
+}
+
+void FileContents::buildSpecialCharTable() {
+  isSpecialChar.fill(false);
+  // Mark newline and carriage return as special
+  isSpecialChar[static_cast<uint8_t>('\n')] = true;
+  isSpecialChar[static_cast<uint8_t>('\r')] = true;
+  // Mark all separators as special
+  for (auto sep : serDeOptions.separators) {
+    isSpecialChar[sep] = true;
+  }
+  // Mark escape char as special if escaping is enabled
+  if (serDeOptions.isEscaped) {
+    isSpecialChar[serDeOptions.escapeChar] = true;
+  }
 }
 
 TextRowReader::TextRowReader(
@@ -303,17 +321,10 @@ uint64_t TextRowReader::next(
     (void)skipLine();
     ++currentRow_;
 
-    if (rowHasError_) {
-      ++rejectedRows_;
-
+    if (rowHasError_ && contents_->onRowReject) {
       RejectedRow err{
-          currentRow_,
-          errorColumnName,
-          *errorColumnType,
-          errorValue_};
-      if (contents_->onRowReject) {
-        contents_->onRowReject(err);
-      }
+          currentRow_, errorColumnName, *errorColumnType, errorValue_};
+      contents_->onRowReject(err);
     } else {
       ++rowsRead;
     }
@@ -502,10 +513,47 @@ bool TextRowReader::isNone(DelimType delim) {
   return (delim == DelimTypeNone);
 }
 
+bool TextRowReader::ensureBufferData() {
+  if (!unreadData_.empty() &&
+      static_cast<size_t>(unreadIdx_) < unreadData_.size()) {
+    return true;
+  }
+
+  // Need to load more data
+  if (contents_->compression != CompressionKind::CompressionKind_NONE) {
+    // Handle compressed data
+    if (preLoadedUnreadData_.empty()) {
+      int length = 0;
+      const void* buffer = nullptr;
+      atPhysicalEOF_ =
+          !contents_->decompressedInputStream->Next(&buffer, &length);
+      if (!atPhysicalEOF_) {
+        preLoadedUnreadData_ =
+            std::string_view(reinterpret_cast<const char*>(buffer), length);
+      }
+    }
+    unreadData_.assign(preLoadedUnreadData_.data(), preLoadedUnreadData_.size());
+    preLoadedUnreadData_ = {};
+  } else {
+    // Handle uncompressed data
+    int length = 0;
+    const void* buffer = nullptr;
+    if (contents_->inputStream->Next(&buffer, &length) && length > 0) {
+      VELOX_CHECK_NOT_NULL(buffer);
+      unreadData_.assign(reinterpret_cast<const char*>(buffer), length);
+    } else {
+      unreadData_.clear();
+    }
+  }
+
+  unreadIdx_ = 0;
+  return !unreadData_.empty();
+}
+
 std::string&
 TextRowReader::getString(TextRowReader& th, bool& isNull, DelimType& delim) {
   if (th.atEOL_) {
-    delim = DelimTypeEOR; // top-level EOR
+    delim = DelimTypeEOR;
   }
 
   if (th.isEOEorEOR(delim)) {
@@ -516,25 +564,90 @@ TextRowReader::getString(TextRowReader& th, bool& isNull, DelimType& delim) {
   bool wasEscaped = false;
   th.ownedString_.clear();
 
-  // Processing has to be done character by characater instad of chunk by chunk.
-  // This is to avoid edge case handling if escape character(s) are cut off at
-  // the end of the chunk.
+  const auto& specialCharTable = th.contents_->isSpecialChar;
+  const bool isEscaped = th.contents_->serDeOptions.isEscaped;
+  const uint8_t escapeChar = th.contents_->serDeOptions.escapeChar;
+
   while (true) {
-    auto v = th.getByteOptimized(delim);
+    // Ensure we have data
+    if (!th.ensureBufferData()) {
+      th.setEOF();
+      delim = DelimTypeEOR;
+      break;
+    }
+
+    // Scan buffer for next special character
+    const char* bufStart = th.unreadData_.data() + th.unreadIdx_;
+    const char* bufEnd = th.unreadData_.data() + th.unreadData_.size();
+    const char* ptr = bufStart;
+
+    while (ptr < bufEnd && !specialCharTable[static_cast<uint8_t>(*ptr)]) {
+      ++ptr;
+    }
+
+    // Copy chunk of regular characters
+    if (ptr > bufStart) {
+      const auto chunkSize = static_cast<int>(ptr - bufStart);
+      th.ownedString_.append(bufStart, chunkSize);
+      th.unreadIdx_ += chunkSize;
+      th.pos_ += chunkSize;
+    }
+
+    // End of buffer - need more data
+    if (ptr >= bufEnd) {
+      continue;
+    }
+
+    // Consume the special character
+    const char v = *ptr;
+    th.unreadIdx_++;
+    th.pos_++;
+    th.atSOL_ = false;
+
+    // Handle \r\n sequence
+    if (v == '\r') {
+      if (th.ensureBufferData() && th.unreadData_[th.unreadIdx_] == '\n') {
+        th.unreadIdx_++;
+        th.pos_++;
+      }
+      th.atEOL_ = true;
+      delim = DelimTypeEOR;
+      if (th.pos_ > th.limit_) {
+        th.atEOF_ = true;
+      }
+      break;
+    }
+
+    // Handle newline
+    if (v == '\n') {
+      th.atEOL_ = true;
+      delim = DelimTypeEOR;
+      if (th.pos_ > th.limit_) {
+        th.atEOF_ = true;
+      }
+      break;
+    }
+
+    // Check if delimiter
+    delim = th.getDelimType(v);
     if (!th.isNone(delim)) {
       break;
     }
 
-    if (th.contents_->serDeOptions.isEscaped &&
-        v == th.contents_->serDeOptions.escapeChar) {
+    // Handle escape character
+    if (isEscaped && static_cast<uint8_t>(v) == escapeChar) {
       wasEscaped = true;
-      th.ownedString_.append(1, static_cast<char>(v));
-      v = th.getByteUncheckedOptimized(delim);
-      if (!th.isNone(delim)) {
-        break;
+      th.ownedString_.append(1, v);
+      // Get the escaped character
+      if (th.ensureBufferData()) {
+        th.ownedString_.append(1, th.unreadData_[th.unreadIdx_++]);
+        th.pos_++;
       }
+      continue;
     }
-    th.ownedString_.append(1, static_cast<char>(v));
+
+    // Regular character (separator at deeper level)
+    th.ownedString_.append(1, v);
   }
 
   if (th.ownedString_ == th.contents_->serDeOptions.nullString) {
@@ -545,9 +658,9 @@ TextRowReader::getString(TextRowReader& th, bool& isNull, DelimType& delim) {
   if (wasEscaped) {
     // We need to copy the data byte by byte only if there is at least one
     // escaped byte.
-    uint64_t j = 0;
-    for (uint64_t i = 0; i < th.ownedString_.length(); i++) {
-      if (th.ownedString_[i] == th.contents_->serDeOptions.escapeChar &&
+    size_t j = 0;
+    for (size_t i = 0; i < th.ownedString_.length(); i++) {
+      if (static_cast<uint8_t>(th.ownedString_[i]) == escapeChar &&
           i < th.ownedString_.length() - 1) {
         // Check if it's '\r' or '\n'.
         i++;
@@ -798,18 +911,18 @@ T TextRowReader::getInteger(TextRowReader& th, bool& isNull, DelimType& delim) {
   }
 
   int64_t v = 0;
-  unsigned long long scanPos = 0;
-  errno = 0;
-  auto scanCount = sscanf(str.c_str(), "%" SCNd64 "%lln", &v, &scanPos);
-  if (scanCount != 1 || errno == ERANGE) {
+  auto result = fast_float::from_chars(str.data(), str.data() + str.size(), v);
+  if (result.ec == std::errc::result_out_of_range ||
+      result.ec == std::errc::invalid_argument) {
     isNull = true;
     th.rowHasError_ = true;
     th.errorValue_ = str;
     return 0;
   }
+  const auto scanPos = static_cast<size_t>(result.ptr - str.data());
   if (scanPos < str.size()) {
     // Check if the string is a valid decimal.
-    for (uint64_t i = scanPos; i < str.size(); i++) {
+    for (size_t i = scanPos; i < str.size(); i++) {
       if (i == scanPos && str[i] == '.') {
         continue;
       }
@@ -962,16 +1075,16 @@ float TextRowReader::getFloat(
     return 0.0;
   }
 
-  float v = 0.0;
-  unsigned long long scanPos = 0;
+  float v = 0.0F;
   // We ignore ERANGE, since denormalized floats and
   // infinities are acceptable.
-  auto scanCount = sscanf(str.c_str(), "%f%lln", &v, &scanPos);
-  if (scanCount != 1 || scanPos < str.size()) {
+  auto result = fast_float::from_chars(str.data(), str.data() + str.size(), v);
+  if (result.ec == std::errc::invalid_argument ||
+      result.ptr != str.data() + str.size()) {
     isNull = true;
     th.rowHasError_ = true;
     th.errorValue_ = str;
-    return 0.0;
+    return 0.0F;
   }
   return v;
 }
@@ -1005,11 +1118,11 @@ TextRowReader::getDouble(TextRowReader& th, bool& isNull, DelimType& delim) {
   }
 
   double v = 0.0;
-  unsigned long long scanPos = 0;
   // We ignore ERANGE, since denormalized doubles and
   // infinities are acceptable.
-  auto scanCount = sscanf(str.c_str(), "%lf%lln", &v, &scanPos);
-  if (scanCount != 1 || scanPos < str.size()) {
+  auto result = fast_float::from_chars(str.data(), str.data() + str.size(), v);
+  if (result.ec == std::errc::invalid_argument ||
+      result.ptr != str.data() + str.size()) {
     isNull = true;
     th.rowHasError_ = true;
     th.errorValue_ = str;
@@ -1635,6 +1748,9 @@ TextReader::TextReader(
     }
     contents_->needsEscape.at(contents_->serDeOptions.escapeChar) = true;
   }
+
+  // Build lookup table for fast delimiter detection
+  contents_->buildSpecialCharTable();
 
   // Validate SerDe options.
   VELOX_CHECK(
