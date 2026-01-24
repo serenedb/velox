@@ -179,8 +179,8 @@ class TextRowReader : public dwio::common::RowReader {
   uint8_t getByte(DelimType& delim);
   uint8_t getByteOptimized(DelimType& delim);
 
-  // Ensures buffer has data available. Returns true if data is available.
-  // After this call, if true returned, unreadData_[unreadIdx_..] contains data.
+  // is buffer containing data (if not load next block to buffer)
+  // return false if at EOF
   bool ensureBufferData();
 
   bool getEOR(DelimType& delim, bool& isNull);
