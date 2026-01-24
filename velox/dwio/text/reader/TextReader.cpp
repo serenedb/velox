@@ -548,7 +548,7 @@ bool TextRowReader::ensureBufferData() {
 std::string&
 TextRowReader::getString(TextRowReader& th, bool& isNull, DelimType& delim) {
   if (th.atEOL_) {
-    delim = DelimTypeEOR;
+    delim = DelimTypeEOR; // top-level EOR
   }
 
   if (th.isEOEorEOR(delim)) {
