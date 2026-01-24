@@ -141,14 +141,11 @@ FileContents::FileContents(
 
 void FileContents::buildSpecialCharTable() {
   isSpecialChar.fill(false);
-  // Mark newline and carriage return as special
   isSpecialChar[static_cast<uint8_t>('\n')] = true;
   isSpecialChar[static_cast<uint8_t>('\r')] = true;
-  // Mark all separators as special
   for (auto sep : serDeOptions.separators) {
     isSpecialChar[sep] = true;
   }
-  // Mark escape char as special if escaping is enabled
   if (serDeOptions.isEscaped) {
     isSpecialChar[serDeOptions.escapeChar] = true;
   }
