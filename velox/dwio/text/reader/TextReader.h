@@ -59,12 +59,9 @@ struct FileContents {
   dwio::common::compression::CompressionOptions compressionOptions;
   SerDeOptions serDeOptions;
   std::array<bool, 128> needsEscape;
-<<<<<<< Updated upstream
-=======
   std::array<bool, 256> isSpecialChar; // Lookup table for delimiters/escape/newline
 
   void buildSpecialCharTable();
->>>>>>> Stashed changes
 
   OnRowReject onRowReject;
 };
@@ -248,10 +245,6 @@ class TextRowReader : public dwio::common::RowReader {
   uint64_t fileLength_;
   std::string ownedString_;
   std::shared_ptr<dwio::common::DataBuffer<char>> varBinBuf_;
-<<<<<<< Updated upstream
-  uint64_t rejectedRows_ = 0;
-=======
->>>>>>> Stashed changes
   bool rowHasError_ = false;
   std::string errorValue_;
 };

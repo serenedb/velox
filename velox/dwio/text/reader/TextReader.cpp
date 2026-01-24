@@ -519,9 +519,7 @@ bool TextRowReader::ensureBufferData() {
     return true;
   }
 
-  // Need to load more data
   if (contents_->compression != CompressionKind::CompressionKind_NONE) {
-    // Handle compressed data
     if (preLoadedUnreadData_.empty()) {
       int length = 0;
       const void* buffer = nullptr;
@@ -532,10 +530,10 @@ bool TextRowReader::ensureBufferData() {
             std::string_view(reinterpret_cast<const char*>(buffer), length);
       }
     }
-    unreadData_.assign(preLoadedUnreadData_.data(), preLoadedUnreadData_.size());
+    unreadData_.assign(
+        preLoadedUnreadData_.data(), preLoadedUnreadData_.size());
     preLoadedUnreadData_ = {};
   } else {
-    // Handle uncompressed data
     int length = 0;
     const void* buffer = nullptr;
     if (contents_->inputStream->Next(&buffer, &length) && length > 0) {
@@ -569,14 +567,12 @@ TextRowReader::getString(TextRowReader& th, bool& isNull, DelimType& delim) {
   const uint8_t escapeChar = th.contents_->serDeOptions.escapeChar;
 
   while (true) {
-    // Ensure we have data
     if (!th.ensureBufferData()) {
       th.setEOF();
       delim = DelimTypeEOR;
       break;
     }
 
-    // Scan buffer for next special character
     const char* bufStart = th.unreadData_.data() + th.unreadIdx_;
     const char* bufEnd = th.unreadData_.data() + th.unreadData_.size();
     const char* ptr = bufStart;
@@ -585,7 +581,6 @@ TextRowReader::getString(TextRowReader& th, bool& isNull, DelimType& delim) {
       ++ptr;
     }
 
-    // Copy chunk of regular characters
     if (ptr > bufStart) {
       const auto chunkSize = static_cast<int>(ptr - bufStart);
       th.ownedString_.append(bufStart, chunkSize);
@@ -593,18 +588,18 @@ TextRowReader::getString(TextRowReader& th, bool& isNull, DelimType& delim) {
       th.pos_ += chunkSize;
     }
 
-    // End of buffer - need more data
+    // load more buffer data in next iteration via ensureBufferData
     if (ptr >= bufEnd) {
       continue;
     }
 
-    // Consume the special character
+
+    // process special chars
     const char v = *ptr;
     th.unreadIdx_++;
     th.pos_++;
     th.atSOL_ = false;
 
-    // Handle \r\n sequence
     if (v == '\r') {
       if (th.ensureBufferData() && th.unreadData_[th.unreadIdx_] == '\n') {
         th.unreadIdx_++;
@@ -618,7 +613,6 @@ TextRowReader::getString(TextRowReader& th, bool& isNull, DelimType& delim) {
       break;
     }
 
-    // Handle newline
     if (v == '\n') {
       th.atEOL_ = true;
       delim = DelimTypeEOR;
@@ -628,7 +622,6 @@ TextRowReader::getString(TextRowReader& th, bool& isNull, DelimType& delim) {
       break;
     }
 
-    // Check if delimiter
     delim = th.getDelimType(v);
     if (!th.isNone(delim)) {
       break;
