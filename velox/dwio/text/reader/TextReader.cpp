@@ -588,13 +588,12 @@ TextRowReader::getString(TextRowReader& th, bool& isNull, DelimType& delim) {
       th.pos_ += chunkSize;
     }
 
-    // load more buffer data in next iteration via ensureBufferData
+    // Load more buffer data in next iteration via ensureBufferData
     if (ptr >= bufEnd) {
       continue;
     }
 
-
-    // process special chars
+    // Process special chars
     const char v = *ptr;
     th.unreadIdx_++;
     th.pos_++;
@@ -627,12 +626,11 @@ TextRowReader::getString(TextRowReader& th, bool& isNull, DelimType& delim) {
       break;
     }
 
-    // Handle escape character
     if (isEscaped && static_cast<uint8_t>(v) == escapeChar) {
       wasEscaped = true;
       th.ownedString_.append(1, v);
-      // Get the escaped character
       if (th.ensureBufferData()) {
+        // Get the escaped character
         th.ownedString_.append(1, th.unreadData_[th.unreadIdx_++]);
         th.pos_++;
       }
@@ -1742,7 +1740,6 @@ TextReader::TextReader(
     contents_->needsEscape.at(contents_->serDeOptions.escapeChar) = true;
   }
 
-  // Build lookup table for fast delimiter detection
   contents_->buildSpecialCharTable();
 
   // Validate SerDe options.

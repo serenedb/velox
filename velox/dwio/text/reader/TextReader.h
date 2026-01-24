@@ -59,7 +59,7 @@ struct FileContents {
   dwio::common::compression::CompressionOptions compressionOptions;
   SerDeOptions serDeOptions;
   std::array<bool, 128> needsEscape;
-  std::array<bool, 256> isSpecialChar; // Lookup table for delimiters/escape/newline
+  std::array<bool, 256> isSpecialChar; // delimiters/escape/newline
 
   void buildSpecialCharTable();
 
