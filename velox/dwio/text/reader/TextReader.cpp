@@ -17,6 +17,8 @@
 #include "velox/dwio/text/reader/TextReader.h"
 
 #include <boost/algorithm/string/predicate.hpp>
+#include <fast_float/fast_float.h>
+#include <charconv>
 #include <string>
 
 #include "velox/common/encode/Base64.h"
@@ -780,59 +782,19 @@ T TextRowReader::getInteger(TextRowReader& th, bool& isNull, DelimType& delim) {
     return 0;
   }
 
-  // Test if s is not acceptable integer format for
-  // the warehouse, for cases accepted by stol().
-  char c = str[0];
-  if (c != '-' && !std::isdigit(static_cast<unsigned char>(c))) {
+  T v = 0;
+  const char* ptr = str.data();
+  const char* end = str.data() + str.size();
+  auto [parseEnd, ec] = fast_float::from_chars(ptr, end, v);
+  if (ec != std::errc{}) {
     isNull = true;
     th.rowHasError_ = true;
     th.errorValue_ = str;
     return 0;
   }
 
-  int64_t v = 0;
-  unsigned long long scanPos = 0;
-  errno = 0;
-  auto scanCount = sscanf(str.c_str(), "%" SCNd64 "%lln", &v, &scanPos);
-  if (scanCount != 1 || errno == ERANGE) {
-    isNull = true;
-    th.rowHasError_ = true;
-    th.errorValue_ = str;
-    return 0;
-  }
-  if (scanPos < str.size()) {
-    // Check if the string is a valid decimal.
-    for (uint64_t i = scanPos; i < str.size(); i++) {
-      if (i == scanPos && str[i] == '.') {
-        continue;
-      }
-      if (str[i] >= '0' && str[i] <= '9') {
-        continue;
-      }
-      isNull = true;
-      th.rowHasError_ = true;
-      th.errorValue_ = str;
-      return 0;
-    }
-  }
-
-  if (!std::is_same<T, int64_t>::value) {
-    if (static_cast<int64_t>(static_cast<T>(v)) != v) {
-      isNull = true;
-      th.rowHasError_ = true;
-      th.errorValue_ = str;
-      return 0;
-    }
-  }
-  return static_cast<T>(v);
+  return v;
 }
-
-namespace {
-
-static constexpr std::string_view kTrueStringView{"TRUE"};
-static constexpr std::string_view kFalseStringView{"FALSE"};
-
-} // namespace
 
 bool TextRowReader::getBoolean(
     TextRowReader& th,
@@ -845,21 +807,30 @@ bool TextRowReader::getBoolean(
   if (isNull) {
     return false;
   }
-  if (str.compare(kTrueStringView) == 0) {
-    return true;
-  }
-  if (str.compare(kFalseStringView) == 0) {
-    return false;
-  }
 
   switch (str.size()) {
+    case 1:
+      if (str[0] == '1' || str[0] == 't' || str[0] == 'T') {
+        return true;
+      }
+      if (str[0] == '0' || str[0] == 'f' || str[0] == 'F') {
+        return false;
+      }
+      break;
     case 4:
-      if (boost::algorithm::iequals(str, kTrueStringView)) {
+      if ((static_cast<unsigned char>(str[0]) | 0x20U) == 't' &&
+          (static_cast<unsigned char>(str[1]) | 0x20U) == 'r' &&
+          (static_cast<unsigned char>(str[2]) | 0x20U) == 'u' &&
+          (static_cast<unsigned char>(str[3]) | 0x20U) == 'e') {
         return true;
       }
       break;
     case 5:
-      if (boost::algorithm::iequals(str, kFalseStringView)) {
+      if ((static_cast<unsigned char>(str[0]) | 0x20U) == 'f' &&
+          (static_cast<unsigned char>(str[1]) | 0x20U) == 'a' &&
+          (static_cast<unsigned char>(str[2]) | 0x20U) == 'l' &&
+          (static_cast<unsigned char>(str[3]) | 0x20U) == 's' &&
+          (static_cast<unsigned char>(str[4]) | 0x20U) == 'e') {
         return false;
       }
       break;
@@ -873,62 +844,6 @@ bool TextRowReader::getBoolean(
   return false;
 }
 
-namespace {
-
-static constexpr std::string_view kNaNStringView{"NaN"};
-static constexpr std::string_view kInfinityStringView{"Infinity"};
-static constexpr std::string_view kShortInfinityStringView{"Inf"};
-static constexpr std::string_view kNegInfinityStringView{"-Infinity"};
-static constexpr std::string_view kShortNegInfinityStringView{"-Inf"};
-
-bool unacceptableFloatingPoint(std::string& s) {
-  for (int i = 0; i < s.size(); ++i) {
-    char c = s.data()[i];
-    if (!(std::isalpha(c) || c == '-')) {
-      return false;
-    }
-  }
-
-  bool isNaN = boost::algorithm::iequals(s, kNaNStringView);
-
-  bool isInf = boost::algorithm::iequals(s, kInfinityStringView);
-  bool isShortInf = boost::algorithm::iequals(s, kShortInfinityStringView);
-
-  bool isNegInf = boost::algorithm::iequals(s, kNegInfinityStringView);
-  bool isShortNegInf =
-      boost::algorithm::iequals(s, kShortNegInfinityStringView);
-
-  return (!isNaN && !isInf && !isShortInf && !isNegInf && !isShortNegInf);
-}
-
-void trimStringInPlace(std::string& s) {
-  const auto isNotSpace = [](unsigned char ch) { return ch > 0x20; };
-  size_t start = 0;
-  size_t end = s.size();
-
-  // Find first non-whitespace character
-  while (start < end && !isNotSpace(s[start])) {
-    ++start;
-  }
-
-  // If the string is all whitespace
-  if (start == end) {
-    s.clear();
-    return;
-  }
-
-  // Find last non-whitespace character
-  size_t last = end - 1;
-  while (last > start && !isNotSpace(s[last])) {
-    --last;
-  }
-
-  // Erase leading and trailing whitespace
-  s = s.substr(start, last - start + 1);
-}
-
-} // namespace
-
 float TextRowReader::getFloat(
     TextRowReader& th,
     bool& isNull,
@@ -941,30 +856,15 @@ float TextRowReader::getFloat(
     return 0;
   }
 
-  trimStringInPlace(str);
-
-  if (str.data()[0] == '.') {
-    th.ownedString_.insert(th.ownedString_.begin(), '0');
-    str = th.ownedString_;
-  }
-
-  if (unacceptableFloatingPoint(str)) {
+  float v = 0.0F;
+  const char* ptr = str.data();
+  const char* end = str.data() + str.size();
+  auto [parseEnd, ec] = fast_float::from_chars(ptr, end, v);
+  if (ec != std::errc{} || parseEnd != end) {
     isNull = true;
     th.rowHasError_ = true;
     th.errorValue_ = str;
-    return 0.0;
-  }
-
-  float v = 0.0;
-  unsigned long long scanPos = 0;
-  // We ignore ERANGE, since denormalized floats and
-  // infinities are acceptable.
-  auto scanCount = sscanf(str.c_str(), "%f%lln", &v, &scanPos);
-  if (scanCount != 1 || scanPos < str.size()) {
-    isNull = true;
-    th.rowHasError_ = true;
-    th.errorValue_ = str;
-    return 0.0;
+    return 0.0F;
   }
   return v;
 }
@@ -980,34 +880,17 @@ TextRowReader::getDouble(TextRowReader& th, bool& isNull, DelimType& delim) {
     return 0.0;
   }
 
-  trimStringInPlace(str);
-
-  if (str.data()[0] == '.') {
-    th.ownedString_.insert(th.ownedString_.begin(), '0');
-    str = th.ownedString_;
-  }
-
-  // Filter out values from non-warehouse sources which
-  // other readers translate to null. Warehouse
-  // readers require upper-case values.
-  if (unacceptableFloatingPoint(str)) {
-    isNull = true;
-    th.rowHasError_ = true;
-    th.errorValue_ = str;
-    return 0.0;
-  }
-
   double v = 0.0;
-  unsigned long long scanPos = 0;
-  // We ignore ERANGE, since denormalized doubles and
-  // infinities are acceptable.
-  auto scanCount = sscanf(str.c_str(), "%lf%lln", &v, &scanPos);
-  if (scanCount != 1 || scanPos < str.size()) {
+  const char* ptr = str.data();
+  const char* end = str.data() + str.size();
+  auto [parseEnd, ec] = fast_float::from_chars(ptr, end, v);
+  if (ec != std::errc{} || parseEnd != end) {
     isNull = true;
     th.rowHasError_ = true;
     th.errorValue_ = str;
     return 0.0;
   }
+
   return v;
 }
 
@@ -1631,11 +1514,11 @@ TextReader::TextReader(
 
   // Validate SerDe options.
   VELOX_CHECK(
-      contents_->serDeOptions.nullString.compare("\r") != 0,
+      contents_->serDeOptions.nullString != "\r",
       "\'\\r\' is not allowed to be nullString");
   VELOX_CHECK(
-      contents_->serDeOptions.nullString.compare("\n") != 0,
-      "\'\\n\n is not allowed to be nullString");
+      contents_->serDeOptions.nullString != "\n",
+      "\'\\n\' is not allowed to be nullString");
 
   setCompressionSettings(
       contents_->input->getName(),
