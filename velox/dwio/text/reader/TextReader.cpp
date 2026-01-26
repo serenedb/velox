@@ -303,17 +303,10 @@ uint64_t TextRowReader::next(
     (void)skipLine();
     ++currentRow_;
 
-    if (rowHasError_) {
-      ++rejectedRows_;
-
+    if (rowHasError_ && contents_->onRowReject) {
       RejectedRow err{
-          currentRow_,
-          errorColumnName,
-          *errorColumnType,
-          errorValue_};
-      if (contents_->onRowReject) {
-        contents_->onRowReject(err);
-      }
+          currentRow_, errorColumnName, *errorColumnType, errorValue_};
+      contents_->onRowReject(err);
     } else {
       ++rowsRead;
     }

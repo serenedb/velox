@@ -238,7 +238,6 @@ class TextRowReader : public dwio::common::RowReader {
   uint64_t fileLength_;
   std::string ownedString_;
   std::shared_ptr<dwio::common::DataBuffer<char>> varBinBuf_;
-  uint64_t rejectedRows_ = 0;
   bool rowHasError_ = false;
   std::string errorValue_;
 };
