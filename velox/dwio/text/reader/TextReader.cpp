@@ -769,7 +769,7 @@ void TextRowReader::resetLine() {
 
 template <typename T>
 T TextRowReader::getNumeric(TextRowReader& th, bool& isNull, DelimType& delim) {
-  auto str = getString(th, isNull, delim);
+  const auto str = getString(th, isNull, delim);
 
   if (str.empty()) {
     isNull = true;
@@ -800,7 +800,7 @@ bool TextRowReader::getBoolean(
     TextRowReader& th,
     bool& isNull,
     DelimType& delim) {
-  auto str = getString(th, isNull, delim);
+  const auto str = getString(th, isNull, delim);
   if (str.empty()) {
     isNull = true;
   }
@@ -817,6 +817,27 @@ bool TextRowReader::getBoolean(
         return false;
       }
       break;
+    case 2:
+      if ((static_cast<unsigned char>(str[0]) | 0x20U) == 'o' &&
+          (static_cast<unsigned char>(str[1]) | 0x20U) == 'n') {
+        return true;
+      }
+      if ((static_cast<unsigned char>(str[0]) | 0x20U) == 'n' &&
+          (static_cast<unsigned char>(str[1]) | 0x20U) == 'o') {
+        return false;
+      }
+      break;
+    case 3:
+      if ((static_cast<unsigned char>(str[0]) | 0x20U) == 'y' &&
+          (static_cast<unsigned char>(str[1]) | 0x20U) == 'e' &&
+          (static_cast<unsigned char>(str[2]) | 0x20U) == 's') {
+        return true;
+      }
+      if ((static_cast<unsigned char>(str[0]) | 0x20U) == 'o' &&
+          (static_cast<unsigned char>(str[1]) | 0x20U) == 'f' &&
+          (static_cast<unsigned char>(str[2]) | 0x20U) == 'f') {
+        return false;
+      }
     case 4:
       if ((static_cast<unsigned char>(str[0]) | 0x20U) == 't' &&
           (static_cast<unsigned char>(str[1]) | 0x20U) == 'r' &&
@@ -860,7 +881,7 @@ void TextRowReader::readElement(
           break;
         case TypeKind::INTEGER:
           if (reqT->isDate()) {
-            auto str = getString(*this, isNull, delim);
+            const auto str = getString(*this, isNull, delim);
             setValueFromString<int32_t>(
                 str,
                 data,
@@ -884,7 +905,7 @@ void TextRowReader::readElement(
 
     case TypeKind::BIGINT:
       if (reqT->isShortDecimal()) {
-        auto str = getString(*this, isNull, delim);
+        const auto str = getString(*this, isNull, delim);
         auto decimalParams = getDecimalPrecisionScale(*reqT);
         const auto precision = decimalParams.first;
         const auto scale = decimalParams.second;
@@ -908,7 +929,7 @@ void TextRowReader::readElement(
       break;
 
     case TypeKind::HUGEINT: {
-      auto str = getString(*this, isNull, delim);
+      const auto str = getString(*this, isNull, delim);
       if (reqT->isLongDecimal()) {
         auto decimalParams = getDecimalPrecisionScale(*reqT);
         const auto precision = decimalParams.first;
@@ -961,7 +982,7 @@ void TextRowReader::readElement(
       break;
 
     case TypeKind::VARBINARY: {
-      auto str = getString(*this, isNull, delim);
+      const auto str = getString(*this, isNull, delim);
 
       // Early return if no data vector or at EOF
       if ((atEOF_ && atSOL_) || (data == nullptr)) {
@@ -1019,7 +1040,7 @@ void TextRowReader::readElement(
       break;
     }
     case TypeKind::VARCHAR: {
-      auto str = getString(*this, isNull, delim);
+      const auto str = getString(*this, isNull, delim);
 
       // Early return if no data vector or at EOF
       if ((atEOF_ && atSOL_) || (data == nullptr)) {
@@ -1305,7 +1326,7 @@ void TextRowReader::readElement(
       break;
 
     case TypeKind::TIMESTAMP: {
-      auto str = getString(*this, isNull, delim);
+      const auto str = getString(*this, isNull, delim);
 
       // Early return if no data vector or at EOF
       if ((atEOF_ && atSOL_) || (data == nullptr)) {
