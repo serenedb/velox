@@ -21,7 +21,6 @@
 
 #include "velox/common/encode/Base64.h"
 #include "velox/dwio/common/exception/Exceptions.h"
-#include "velox/type/TimestampConversion.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
 namespace facebook::velox::text {
