@@ -78,7 +78,11 @@ void BufferedInput::load(const LogType logType) {
     }
   } else {
     for (const auto& region : regions_) {
-      readToBuffer(region.offset, allocate(region), logType);
+      VELOX_CHECK_LT(region.length, std::numeric_limits<uint64_t>::max());
+      VELOX_CHECK_LT(
+          region.offset + region.length, std::numeric_limits<uint64_t>::max());
+      auto range = allocate(region);
+      readToBuffer(region.offset, range, logType);
     }
   }
 
@@ -88,15 +92,14 @@ void BufferedInput::load(const LogType logType) {
 
 void BufferedInput::readToBuffer(
     uint64_t offset,
-    folly::Range<char*> allocated,
+    folly::Range<char*>& allocated,
     const LogType logType) {
   uint64_t usec = 0;
   {
-    // TODO: make API support reference to buffer to change its length
-    VELOX_NYI("readToBuffer is not supported yet");
-
-    // MicrosecondTimer timer(&usec);
-    // input_->read(allocated.data(), allocated.size(), offset, logType);
+    MicrosecondTimer timer(&usec);
+    uint64_t size = allocated.size();
+    input_->read(allocated.data(), size, offset, logType);
+    allocated = {allocated.data(), size};
   }
   if (auto* stats = input_->getStats()) {
     stats->read().increment(allocated.size());

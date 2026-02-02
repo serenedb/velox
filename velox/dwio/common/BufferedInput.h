@@ -243,7 +243,7 @@ class BufferedInput {
 
   void readToBuffer(
       uint64_t offset,
-      folly::Range<char*> allocated,
+      folly::Range<char*>& allocated,
       const LogType logType);
 
   folly::Range<char*> allocate(const velox::common::Region& region) {
