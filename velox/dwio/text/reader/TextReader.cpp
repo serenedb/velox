@@ -1350,7 +1350,6 @@ void TextRowReader::readElement(
                 folly::identity, [&](const Status& status) {
                   VELOX_USER_FAIL(status.message());
                 });
-        ts.toGMT(Timestamp::defaultTimezone());
         flatVector->set(
             insertionRow, Timestamp{ts.getSeconds(), ts.getNanos()});
       }
