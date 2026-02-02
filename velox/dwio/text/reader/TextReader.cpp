@@ -21,6 +21,7 @@
 
 #include "velox/common/encode/Base64.h"
 #include "velox/dwio/common/exception/Exceptions.h"
+#include "velox/type/TimestampConversion.h"
 #include "velox/type/fbhive/HiveTypeParser.h"
 
 namespace facebook::velox::text {
@@ -1350,7 +1351,6 @@ void TextRowReader::readElement(
                 folly::identity, [&](const Status& status) {
                   VELOX_USER_FAIL(status.message());
                 });
-        ts.toGMT(Timestamp::defaultTimezone());
         flatVector->set(
             insertionRow, Timestamp{ts.getSeconds(), ts.getNanos()});
       }
