@@ -65,7 +65,7 @@ void ByteStreamSplitDecodeSse2(
       const size_t byte_index = b * stride + i;
       gathered_byte_data[b] = data[byte_index];
     }
-    out[i] = arrow::util::SafeLoadAs<T>(&gathered_byte_data[0]);
+    out[i] = ::arrow::util::SafeLoadAs<T>(&gathered_byte_data[0]);
   }
 
   // The blocks get processed hierarchically using the unpack intrinsics.
@@ -218,7 +218,7 @@ void ByteStreamSplitDecodeAvx2(
       const size_t byte_index = b * stride + i;
       gathered_byte_data[b] = data[byte_index];
     }
-    out[i] = arrow::util::SafeLoadAs<T>(&gathered_byte_data[0]);
+    out[i] = ::arrow::util::SafeLoadAs<T>(&gathered_byte_data[0]);
   }
 
   // Processed hierarchically using unpack intrinsics, then permute intrinsics.
@@ -396,7 +396,7 @@ void ByteStreamSplitDecodeAvx512(
       const size_t byte_index = b * stride + i;
       gathered_byte_data[b] = data[byte_index];
     }
-    out[i] = arrow::util::SafeLoadAs<T>(&gathered_byte_data[0]);
+    out[i] = ::arrow::util::SafeLoadAs<T>(&gathered_byte_data[0]);
   }
 
   // Processed hierarchically using the unpack, then two shuffles.

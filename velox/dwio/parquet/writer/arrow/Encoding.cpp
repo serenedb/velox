@@ -4076,7 +4076,7 @@ int ByteStreamSplitDecoder<DType>::DecodeArrow(
   // Use fast decoding into intermediate buffer.  This will also decode
   // some null values, but it's fast enough that we don't care.
   T* decode_out = EnsureDecodeBuffer(values_decoded);
-  ::arrow::util::internal::ByteStreamSplitDecode<T>(
+  ByteStreamSplitDecode<T>(
       data, values_decoded, num_values_in_buffer_, decode_out);
 
   // XXX If null_count is 0, we could even append in bulk or decode directly
