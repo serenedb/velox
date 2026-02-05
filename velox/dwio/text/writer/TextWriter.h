@@ -66,7 +66,7 @@ class TextWriter : public dwio::common::Writer {
 
   void writeCellValue(
       const std::shared_ptr<DecodedVector>& decodedColumnVector,
-      TypeKind type,
+      const TypePtr& type,
       vector_size_t row,
       uint8_t depth,
       std::optional<uint8_t> delimiter);
