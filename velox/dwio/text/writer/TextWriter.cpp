@@ -23,6 +23,14 @@ namespace facebook::velox::text {
 
 using dwio::common::SerDeOptions;
 
+namespace {
+
+std::optional<std::string> dateToTextStr(int32_t days) {
+  return {DATE()->toString(days)};
+}
+
+} // namespace
+
 template <typename T>
 std::optional<std::string> toTextStr(T val) {
   return std::optional(std::to_string(val));
@@ -58,7 +66,6 @@ std::optional<std::string> toTextStr<double>(double val) {
 template <>
 std::optional<std::string> toTextStr<Timestamp>(Timestamp val) {
   TimestampToStringOptions options;
-  val.toTimezone(Timestamp::defaultTimezone());
   options.dateTimeSeparator = ' ';
   options.precision = TimestampPrecision::kMilliseconds;
   return {val.toString(options)};
@@ -160,7 +167,7 @@ void TextWriter::write(const VectorPtr& data) {
                                 : std::optional(serDeOptions_.separators[0]);
       writeCellValue(
           decodedColumnVectors.at(column),
-          schema_->childAt(column)->kind(),
+          schema_->childAt(column),
           row,
           0,
           delimiter);
@@ -183,7 +190,7 @@ void TextWriter::abort() {
 
 void TextWriter::writeCellValue(
     const std::shared_ptr<DecodedVector>& decodedColumnVector,
-    const TypeKind type,
+    const TypePtr& type,
     vector_size_t row,
     uint8_t depth,
     std::optional<uint8_t> delimiter) {
@@ -207,7 +214,7 @@ void TextWriter::writeCellValue(
   std::optional<std::string> dataStr = std::nullopt;
   std::optional<StringView> dataSV = std::nullopt;
 
-  switch (type) {
+  switch (type->kind()) {
     case TypeKind::BOOLEAN: {
       dataStr =
           toTextStr(folly::to<bool>(decodedColumnVector->valueAt<bool>(row)));
@@ -222,7 +229,12 @@ void TextWriter::writeCellValue(
       break;
     }
     case TypeKind::INTEGER: {
-      dataStr = toTextStr(decodedColumnVector->valueAt<int32_t>(row));
+      auto val = decodedColumnVector->valueAt<int32_t>(row);
+      if (type->isDate()) {
+        dataStr = dateToTextStr(val);
+      } else {
+        dataStr = toTextStr(val);
+      }
       break;
     }
     case TypeKind::BIGINT: {
@@ -265,11 +277,7 @@ void TextWriter::writeCellValue(
         delimiter = (i == 0) ? std::nullopt
                              : std::optional(getDelimiterForDepth(depth));
         writeCellValue(
-            decodedElement,
-            arrVecPtr->elements().get()->typeKind(),
-            i,
-            depth,
-            delimiter);
+            decodedElement, arrVecPtr->elements()->type(), i, depth, delimiter);
       }
       return;
     }
@@ -292,19 +300,11 @@ void TextWriter::writeCellValue(
         delimiter = (i == 0) ? std::nullopt
                              : std::optional(getDelimiterForDepth(depth));
         writeCellValue(
-            decodedKeys,
-            mapVecPtr->mapKeys().get()->typeKind(),
-            i,
-            depth,
-            delimiter);
+            decodedKeys, mapVecPtr->mapKeys()->type(), i, depth, delimiter);
 
         delimiter = std::optional(getDelimiterForDepth(depth + 1));
         writeCellValue(
-            decodedValues,
-            mapVecPtr->mapValues().get()->typeKind(),
-            i,
-            depth,
-            delimiter);
+            decodedValues, mapVecPtr->mapValues()->type(), i, depth, delimiter);
       }
 
       return;
@@ -331,7 +331,7 @@ void TextWriter::writeCellValue(
             : std::optional(getDelimiterForDepth(depth));
         writeCellValue(
             decodedColumnVectors.at(column),
-            rowVecPtr->childAt(column)->typeKind(),
+            rowVecPtr->childAt(column)->type(),
             actualRowIndex,
             depth,
             nestedRowDelimiter);
@@ -347,8 +347,7 @@ void TextWriter::writeCellValue(
     case TypeKind::INVALID:
       [[fallthrough]];
     default:
-      VELOX_NYI(
-          "Text writer does not support type {}", TypeKindName::toName(type));
+      VELOX_NYI("Text writer does not support type {}", type->toString());
   }
 
   VELOX_CHECK(
