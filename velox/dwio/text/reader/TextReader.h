@@ -17,6 +17,7 @@
 #pragma once
 
 #include <array>
+#include <bitset>
 #include <limits>
 #include <string>
 #include <string_view>
@@ -178,6 +179,8 @@ class TextRowReader : public dwio::common::RowReader {
   uint8_t getByte(DelimType& delim);
   uint8_t getByteOptimized(DelimType& delim);
 
+  std::string_view getStringFast();
+
   bool getEOR(DelimType& delim, bool& isNull);
 
   bool skipLine();
@@ -199,10 +202,9 @@ class TextRowReader : public dwio::common::RowReader {
       vector_size_t insertionRow,
       DelimType& delim);
 
-  template <class T, class reqT>
+  template <class T, class reqT, class F>
   void putValue(
-      const std::function<T(TextRowReader& th, bool& isNull, DelimType& delim)>&
-          f,
+      F f,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
@@ -233,15 +235,113 @@ class TextRowReader : public dwio::common::RowReader {
   bool atSOL_;
   bool atPhysicalEOF_;
   uint8_t depth_;
-  std::string unreadData_;
+  std::string_view unreadData_;
   std::string_view preLoadedUnreadData_;
-  int unreadIdx_;
   uint64_t limit_; // lowest offset not in the range
   uint64_t fileLength_;
   std::vector<char> ownedString_;
   std::shared_ptr<dwio::common::DataBuffer<char>> varBinBuf_;
   bool rowHasError_ = false;
-  std::string errorValue_;
+  std::string_view errorValue_;
+
+  std::array<std::bitset<256>, 5> isSpecialCharByDepth_;
+
+  using ColumnReaderFunc = void (TextRowReader::*)(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
+  std::vector<ColumnReaderFunc> columnReaders_;
+  std::vector<std::shared_ptr<const Type>> columnTypes_;
+
+  void initializeColumnReaders();
+
+  // Specialized readers for each type
+  void readInteger(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
+  void readDate(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
+  void readBigInt(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
+  void readBigIntDecimal(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
+  void readSmallInt(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
+  void readTinyInt(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
+  void readBoolean(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
+  void readVarChar(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
+  void readVarBinary(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
+  void readReal(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
+  void readDouble(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
+  void readTimestamp(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
+  void readHugeInt(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
+  void readHugeIntDecimal(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
+  void readArray(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
+  void readMap(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
+  void readRow(
+      vector_size_t columnIdx,
+      BaseVector* FOLLY_NULLABLE data,
+      vector_size_t insertionRow,
+      DelimType& delim);
 };
 
 } // namespace facebook::velox::text
