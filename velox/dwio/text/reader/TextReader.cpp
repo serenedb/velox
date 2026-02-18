@@ -315,7 +315,7 @@ uint64_t TextRowReader::next(
 
   auto childCount = t->size();
 
-  RowVectorPtr rowVecPtr;
+  RowVectorPtr rowVecPtr = std::dynamic_pointer_cast<RowVector>(result);
   rowVecPtr->resize((vector_size_t)rows);
 
   vector_size_t rowsRead = 0;
