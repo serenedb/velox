@@ -318,6 +318,13 @@ uint64_t TextRowReader::next(
   RowVectorPtr rowVecPtr = std::dynamic_pointer_cast<RowVector>(result);
   rowVecPtr->resize((vector_size_t)rows);
 
+  for (vector_size_t i = 0; i < childCount; i++) {
+    auto* child = rowVecPtr->childAt(i).get();
+    if (child != nullptr && child->size() < static_cast<vector_size_t>(rows)) {
+      child->resize(static_cast<vector_size_t>(rows));
+    }
+  }
+
   vector_size_t rowsRead = 0;
   const auto initialPos = pos_;
   const auto& rowType = t->type()->asRow();
@@ -329,8 +336,6 @@ uint64_t TextRowReader::next(
     for (vector_size_t i = 0; i < childCount; i++) {
       DelimType delim = DelimTypeNone;
       auto childVector = rowVecPtr->childAt(i).get();
-
-      resizeVector(childVector, rowsRead);
       bool hadErrorBefore = rowHasError_;
       // Use pre-compiled column reader for this column
       (this->*columnReaders_[i])(i, childVector, rowsRead, delim);
@@ -339,6 +344,7 @@ uint64_t TextRowReader::next(
         errorColumnType = rowType.childAt(i).get();
         RejectedRow err{
             currentRow_, errorColumnName, *errorColumnType, errorValue_};
+        contents_->onRowReject(err);
       }
     }
 
