@@ -541,17 +541,11 @@ class ExprToSubfieldFilterParser {
 // Parser for Presto expressions.
 class PrestoExprToSubfieldFilterParser : public ExprToSubfieldFilterParser {
  public:
-  explicit PrestoExprToSubfieldFilterParser(std::string funcPrefix = {})
-      : funcPrefix_{std::move(funcPrefix)} {}
-
   std::optional<std::pair<common::Subfield, std::unique_ptr<common::Filter>>>
   leafCallToSubfieldFilter(
       const core::CallTypedExpr& call,
       core::ExpressionEvaluator* evaluator,
       bool negated = false) override;
-
- private:
-  std::string funcPrefix_;
 };
 
 } // namespace facebook::velox::exec

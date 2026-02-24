@@ -753,67 +753,74 @@ PrestoExprToSubfieldFilterParser::leafCallToSubfieldFilter(
   }
 
   const auto* leftSide = call.inputs()[0].get();
-  const auto& n = call.name();
+  std::string_view n = call.name();
 
   common::Subfield subfield;
-  if (n == funcPrefix_ + "eq") {
+  if (n == "eq" || n.ends_with("_eq")) {
     if (toSubfield(leftSide, subfield)) {
       auto filter = negated ? makeNotEqualFilter(call.inputs()[1], evaluator)
                             : makeEqualFilter(call.inputs()[1], evaluator);
 
       return combine(subfield, filter);
     }
-  } else if (n == funcPrefix_ + "neq") {
+  } else if (n == "neq" || n.ends_with("_neq")) {
     if (toSubfield(leftSide, subfield)) {
       auto filter = negated ? makeEqualFilter(call.inputs()[1], evaluator)
                             : makeNotEqualFilter(call.inputs()[1], evaluator);
       return combine(subfield, filter);
     }
-  } else if (n == funcPrefix_ + "lte") {
+  } else if (n == "lte" || n.ends_with("_lte")) {
     if (toSubfield(leftSide, subfield)) {
       auto filter = negated
           ? makeGreaterThanFilter(call.inputs()[1], evaluator)
           : makeLessThanOrEqualFilter(call.inputs()[1], evaluator);
       return combine(subfield, filter);
     }
-  } else if (n == funcPrefix_ + "lt") {
+  } else if (n == "lt" || n.ends_with("_lt")) {
     if (toSubfield(leftSide, subfield)) {
       auto filter = negated
           ? makeGreaterThanOrEqualFilter(call.inputs()[1], evaluator)
           : makeLessThanFilter(call.inputs()[1], evaluator);
       return combine(subfield, filter);
     }
-  } else if (n == funcPrefix_ + "gte") {
+  } else if (n == "gte" || n.ends_with("_gte")) {
     if (toSubfield(leftSide, subfield)) {
       auto filter = negated
           ? makeLessThanFilter(call.inputs()[1], evaluator)
           : makeGreaterThanOrEqualFilter(call.inputs()[1], evaluator);
       return combine(subfield, filter);
     }
-  } else if (n == funcPrefix_ + "gt") {
+  } else if (n == "gt" || n.ends_with("_gt")) {
     if (toSubfield(leftSide, subfield)) {
       auto filter = negated
           ? makeLessThanOrEqualFilter(call.inputs()[1], evaluator)
           : makeGreaterThanFilter(call.inputs()[1], evaluator);
       return combine(subfield, filter);
     }
-  } else if (n == funcPrefix_ + "between") {
+  } else if (n == "between" || n.ends_with("_between")) {
     if (toSubfield(leftSide, subfield)) {
       auto filter = makeBetweenFilter(
           call.inputs()[1], call.inputs()[2], evaluator, negated);
       return combine(subfield, filter);
     }
-  } else if (n == funcPrefix_ + "in") {
+  } else if (n == "in" || n.ends_with("_in")) {
     if (toSubfield(leftSide, subfield)) {
       auto filter = makeInFilter(call.inputs()[1], evaluator, negated);
       return combine(subfield, filter);
     }
-  } else if (n == funcPrefix_ + "is_null") {
+  } else if (n == "is_null" || n.ends_with("_is_null") || n == "isnull" || n.ends_with("_isnull")) {
     if (toSubfield(leftSide, subfield)) {
       if (negated) {
         return std::make_pair(std::move(subfield), isNotNull());
       }
       return std::make_pair(std::move(subfield), isNull());
+    }
+  } else if (n == "is_not_null" || n.ends_with("_is_not_null") || n == "isnotnull" || n.ends_with("_isnotnull")) {
+    if (toSubfield(leftSide, subfield)) {
+      if (negated) {
+        return std::make_pair(std::move(subfield), isNull());
+      }
+      return std::make_pair(std::move(subfield), isNotNull());
     }
   }
   return std::nullopt;
