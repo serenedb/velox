@@ -134,6 +134,10 @@ set(
 option(VELOX_ENABLE_EXEC "Build exec." ON)
 option(VELOX_ENABLE_AGGREGATES "Build aggregates." ON)
 option(VELOX_ENABLE_HIVE_CONNECTOR "Build Hive connector." ON)
+option(
+  VELOX_ENABLE_HIVE_CONNECTOR_UTILS
+  "Build Hive connector utils (HiveConnectorUtil, HiveConfig, TableHandle). Enabled automatically when VELOX_ENABLE_HIVE_CONNECTOR is ON."
+  OFF)
 option(VELOX_ENABLE_TPCH_CONNECTOR "Build TPC-H connector." ON)
 option(VELOX_ENABLE_TPCDS_CONNECTOR "Build TPC-DS connector." ON)
 option(VELOX_ENABLE_PRESTO_FUNCTIONS "Build Presto SQL functions." ON)

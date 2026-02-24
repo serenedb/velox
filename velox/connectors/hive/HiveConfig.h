@@ -276,7 +276,7 @@ class HiveConfig {
   uint64_t sortWriterFinishTimeSliceLimitMs(
       const config::IConfig* session) const;
 
-  uint64_t maxTargetFileSizeBytes(const config::ConfigBase* session) const;
+  uint64_t maxTargetFileSizeBytes(const config::ConfigPtr& session) const;
 
   uint64_t footerEstimatedSize() const;
 

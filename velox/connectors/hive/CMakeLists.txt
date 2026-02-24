@@ -12,37 +12,53 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# VELOX_ENABLE_HIVE_CONNECTOR implies VELOX_ENABLE_HIVE_CONNECTOR_UTILS.
+if(${VELOX_ENABLE_HIVE_CONNECTOR})
+  set(VELOX_ENABLE_HIVE_CONNECTOR_UTILS ON)
+endif()
+
+# Lightweight config-only library (no Hive connector required).
 velox_add_library(velox_hive_config OBJECT HiveConfig.cpp)
 velox_link_libraries(velox_hive_config velox_core velox_exception)
 
-add_subdirectory(iceberg)
-
+# Utility library: HiveConnectorUtil + TableHandle (for columnTypeName).
+# Available without the full Hive connector.
 velox_add_library(
-  velox_hive_connector
+  velox_hive_connector_utils
   OBJECT
-  BufferedInputBuilder.cpp
-  FileHandle.cpp
-  HiveConfig.cpp
-  HiveConnector.cpp
   HiveConnectorUtil.cpp
-  HiveConnectorSplit.cpp
-  HiveDataSink.cpp
-  HiveDataSource.cpp
-  HivePartitionName.cpp
-  PartitionIdGenerator.cpp
-  SplitReader.cpp
-  TableHandle.cpp
-)
+  TableHandle.cpp)
 
 velox_link_libraries(
-  velox_hive_connector
-  PUBLIC velox_hive_iceberg_splitreader
-  PRIVATE velox_common_io velox_connector velox_dwio_catalog_fbhive velox_hive_partition_function
-)
+  velox_hive_connector_utils
+  PUBLIC velox_hive_config velox_connector
+  PRIVATE velox_common_io velox_dwio_catalog_fbhive)
 
-velox_add_library(velox_hive_partition_function HivePartitionFunction.cpp)
+if(${VELOX_ENABLE_HIVE_CONNECTOR})
+  add_subdirectory(iceberg)
 
-velox_link_libraries(velox_hive_partition_function velox_core velox_exec)
+  velox_add_library(
+    velox_hive_connector
+    OBJECT
+    BufferedInputBuilder.cpp
+    FileHandle.cpp
+    HiveConnector.cpp
+    HiveConnectorSplit.cpp
+    HiveDataSink.cpp
+    HiveDataSource.cpp
+    HivePartitionName.cpp
+    PartitionIdGenerator.cpp
+    SplitReader.cpp)
+
+  velox_link_libraries(
+    velox_hive_connector
+    PUBLIC velox_hive_iceberg_splitreader velox_hive_connector_utils
+    PRIVATE velox_common_io velox_connector velox_dwio_catalog_fbhive
+            velox_hive_partition_function)
+
+  velox_add_library(velox_hive_partition_function HivePartitionFunction.cpp)
+  velox_link_libraries(velox_hive_partition_function velox_core velox_exec)
+endif()
 
 if(${VELOX_BUILD_TESTING})
   add_subdirectory(tests)
