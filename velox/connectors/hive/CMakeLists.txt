@@ -12,17 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# VELOX_ENABLE_HIVE_CONNECTOR implies VELOX_ENABLE_HIVE_CONNECTOR_UTILS.
 if(${VELOX_ENABLE_HIVE_CONNECTOR})
   set(VELOX_ENABLE_HIVE_CONNECTOR_UTILS ON)
 endif()
 
-# Lightweight config-only library (no Hive connector required).
 velox_add_library(velox_hive_config OBJECT HiveConfig.cpp)
 velox_link_libraries(velox_hive_config velox_core velox_exception)
 
-# Utility library: HiveConnectorUtil + TableHandle (for columnTypeName).
-# Available without the full Hive connector.
 velox_add_library(
   velox_hive_connector_utils
   OBJECT
