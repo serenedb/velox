@@ -420,6 +420,45 @@ void TextRowReader::initializeColumnReaders() {
   }
 }
 
+namespace {
+void processMutation(RowVectorPtr& rowVecPtr, const Mutation* mutation) {
+  if (!mutation) {
+    return;
+  }
+  const auto rowsRead = rowVecPtr->size();
+  std::vector<uint64_t> passed(bits::nwords(rowsRead), -1);
+  if (mutation->deletedRows) {
+    bits::andWithNegatedBits(passed.data(), mutation->deletedRows, 0, rowsRead);
+  }
+  if (mutation->randomSkip) {
+    bits::forEachSetBit(passed.data(), 0, rowsRead, [&](auto i) {
+      if (!mutation->randomSkip->testOne()) {
+        bits::clearBit(passed.data(), i);
+      }
+    });
+  }
+  auto numPassed = bits::countBits(passed.data(), 0, rowsRead);
+  if (numPassed == 0) {
+    rowVecPtr->resize(0);
+  } else if (numPassed < rowsRead) {
+    auto indices = allocateIndices(numPassed, rowVecPtr->pool());
+    auto* rawIndices = indices->asMutable<vector_size_t>();
+    vector_size_t j = 0;
+    bits::forEachSetBit(
+        passed.data(), 0, rowsRead, [&](auto i) { rawIndices[j++] = i; });
+    for (auto& child : rowVecPtr->children()) {
+      if (!child) {
+        continue;
+      }
+      child->disableMemo();
+      child = BaseVector::wrapInDictionary(
+          nullptr, indices, numPassed, std::move(child));
+    }
+    rowVecPtr->resize(numPassed);
+  }
+}
+} // namespace
+
 uint64_t TextRowReader::next(
     uint64_t rows,
     VectorPtr& result,
@@ -520,48 +559,6 @@ uint64_t TextRowReader::next(
   result = std::move(rowVecPtr);
   return result->size();
 }
-
-namespace {
-void processMutation(
-    RowVectorPtr& rowVecPtr,
-    const Mutation* mutation) {
-  if (!mutation) {
-    return;
-  }
-  const auto rowsRead = rowVecPtr->size();
-  std::vector<uint64_t> passed(bits::nwords(rowsRead), -1);
-  if (mutation->deletedRows) {
-    bits::andWithNegatedBits(
-        passed.data(), mutation->deletedRows, 0, rowsRead);
-  }
-  if (mutation->randomSkip) {
-    bits::forEachSetBit(passed.data(), 0, rowsRead, [&](auto i) {
-      if (!mutation->randomSkip->testOne()) {
-        bits::clearBit(passed.data(), i);
-      }
-    });
-  }
-  auto numPassed = bits::countBits(passed.data(), 0, rowsRead);
-  if (numPassed == 0) {
-    rowVecPtr->resize(0);
-  } else if (numPassed < rowsRead) {
-    auto indices = allocateIndices(numPassed, rowVecPtr->pool());
-    auto* rawIndices = indices->asMutable<vector_size_t>();
-    vector_size_t j = 0;
-    bits::forEachSetBit(
-        passed.data(), 0, rowsRead, [&](auto i) { rawIndices[j++] = i; });
-    for (auto& child : rowVecPtr->children()) {
-      if (!child) {
-        continue;
-      }
-      child->disableMemo();
-      child = BaseVector::wrapInDictionary(
-          nullptr, indices, numPassed, std::move(child));
-    }
-    rowVecPtr->resize(numPassed);
-  }
-}
-} // namespace
 
 uint64_t TextRowReader::seekToRow(uint64_t rowNumber) {
   VELOX_CHECK_GT(
