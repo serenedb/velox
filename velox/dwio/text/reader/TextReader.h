@@ -173,7 +173,7 @@ class TextRowReader : public dwio::common::RowReader {
       vector_size_t insertionRow,
       DelimType& delim);
 
-  template <class T, class reqT, class Filter, class F>
+  template <typename T, typename Filter, typename F>
   bool putValue(
       const F& f,
       BaseVector* FOLLY_NULLABLE data,
@@ -181,7 +181,7 @@ class TextRowReader : public dwio::common::RowReader {
       DelimType& delim,
       const velox::common::Filter* filter);
 
-  template <class T, class Filter>
+  template <typename T, typename Filter>
   bool setValueFromString(
       std::string_view str,
       BaseVector* FOLLY_NULLABLE data,

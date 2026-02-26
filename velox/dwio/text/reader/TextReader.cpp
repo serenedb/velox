@@ -728,7 +728,7 @@ TextRowReader::getString(TextRowReader& th, bool& isNull, DelimType& delim) {
   return th.ownedStringView();
 }
 
-template <class T, class Filter>
+template <typename T, typename Filter>
 bool TextRowReader::setValueFromString(
     std::string_view str,
     BaseVector* data,
@@ -1138,7 +1138,7 @@ void TextRowReader::readElement(
   }
 }
 
-template <class T, class reqT, class Filter, class F>
+template <typename T, typename Filter, typename F>
 bool TextRowReader::putValue(
     const F& f,
     BaseVector* FOLLY_NULLABLE data,
@@ -1166,7 +1166,7 @@ bool TextRowReader::putValue(
     return testFilter<Filter>(filter, v);
   }
 
-  auto flatVector = data->asUnchecked<FlatVector<reqT>>();
+  auto flatVector = data->asUnchecked<FlatVector<T>>();
   if (isNull) {
     if constexpr (!std::is_same_v<Filter, velox::common::AlwaysTrue>) {
       if (!filter->testNull()) {
