@@ -17,7 +17,6 @@
 #pragma once
 
 #include <array>
-#include <limits>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -33,7 +32,6 @@ namespace facebook::velox::text {
 using common::CompressionKind;
 using common::ScanSpec;
 using dwio::common::BufferedInput;
-using dwio::common::ColumnSelector;
 using dwio::common::ColumnStatistics;
 using dwio::common::Mutation;
 using dwio::common::ReaderOptions;
@@ -49,7 +47,6 @@ using OnRowReject = dwio::common::OnRowReject;
 struct FileContents {
   FileContents(MemoryPool& pool, const std::shared_ptr<const RowType>& t);
 
-  const size_t COLUMN_POSITION_INVALID = std::numeric_limits<size_t>::max();
   const std::shared_ptr<const RowType> schema;
 
   std::unique_ptr<BufferedInput> input;
@@ -96,8 +93,6 @@ class TextReader : public dwio::common::Reader {
   ReaderOptions options_;
   mutable std::shared_ptr<const TypeWithId> typeWithId_;
   std::shared_ptr<FileContents> contents_;
-  std::shared_ptr<const TypeWithId> schemaWithId_;
-  std::shared_ptr<const RowType> internalSchema_;
 };
 
 class TextRowReader : public dwio::common::RowReader {
@@ -122,22 +117,12 @@ class TextRowReader : public dwio::common::RowReader {
 
   std::optional<size_t> estimatedRowSize() const override;
 
-  const ColumnSelector& getColumnSelector() const;
-
-  std::shared_ptr<const TypeWithId> getSelectedType() const;
-
   uint64_t getRowNumber() const;
 
   uint64_t seekToRow(uint64_t rowNumber);
 
  private:
-  const RowReaderOptions& getDefaultOpts();
-
-  const std::shared_ptr<const RowType>& getFileType() const;
-
-  bool isSelectedField(const std::shared_ptr<const TypeWithId>& t);
-
-  const char* getStreamNameData() const;
+  const RowType& getFileType() const;
 
   uint64_t getLength();
 
@@ -152,8 +137,6 @@ class TextRowReader : public dwio::common::RowReader {
   void setEOE(DelimType& delim);
 
   void resetEOE(DelimType& delim);
-
-  bool isEOE(DelimType delim);
 
   void setEOR(DelimType& delim);
 
@@ -170,12 +153,8 @@ class TextRowReader : public dwio::common::RowReader {
   DelimType getDelimType(uint8_t v);
 
   template <bool skipLF = false>
-  char getByteUnchecked(DelimType& delim);
-
-  template <bool skipLF = false>
   char getByteUncheckedOptimized(DelimType& delim);
 
-  uint8_t getByte(DelimType& delim);
   uint8_t getByteOptimized(DelimType& delim);
 
   bool getEOR(DelimType& delim, bool& isNull);
@@ -220,13 +199,10 @@ class TextRowReader : public dwio::common::RowReader {
   const std::shared_ptr<const TypeWithId> schemaWithId_;
   const std::shared_ptr<velox::common::ScanSpec>& scanSpec_;
 
-  mutable std::shared_ptr<const TypeWithId> selectedSchema_;
-
   static constexpr int64_t kNotProjected = -1;
   std::vector<int64_t> fileToInputTypeIdx_;
 
   RowReaderOptions options_;
-  ColumnSelector columnSelector_;
   uint64_t currentRow_;
   uint64_t pos_;
   bool atEOL_;

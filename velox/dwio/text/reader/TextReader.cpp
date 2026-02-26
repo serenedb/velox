@@ -142,10 +142,7 @@ TextRowReader::TextRowReader(
       contents_{fileContents},
       schemaWithId_{TypeWithId::create(fileContents->schema)},
       scanSpec_{opts.scanSpec()},
-      selectedSchema_{nullptr},
       options_{opts},
-      columnSelector_{
-          ColumnSelector::apply(opts.selector(), contents_->schema)},
       currentRow_{0},
       pos_{opts.offset()},
       atEOL_{false},
@@ -216,6 +213,21 @@ TextRowReader::TextRowReader(
 }
 
 void TextRowReader::initializeColumnReaders() {
+  const auto& fileType = getFileType();
+  const size_t fileColumnCount = fileType.size();
+  fileToInputTypeIdx_.resize(fileColumnCount, kNotProjected);
+  const auto& scanSpecs = scanSpec_->children();
+  for (const auto& scanSpec : scanSpecs) {
+    if (scanSpec->channel() == ScanSpec::kNoChannel ||
+        !scanSpec->projectOut()) {
+      continue;
+    }
+
+    const auto& fileName = scanSpec->fieldName();
+    auto fileTypeIdx = fileType.getChildIdx(fileName);
+    fileToInputTypeIdx_[fileTypeIdx] = scanSpec->channel();
+  }
+
   auto childCount = schemaWithId_->size();
   columnReaders_.reserve(childCount);
 
@@ -296,34 +308,10 @@ uint64_t TextRowReader::next(
   RowVectorPtr rowVecPtr = std::dynamic_pointer_cast<RowVector>(result);
   rowVecPtr->resize((vector_size_t)rows);
 
-  const auto& inputType = result->type()->asRow();
-  for (vector_size_t i = 0; i < inputType.size(); i++) {
-    auto* child = rowVecPtr->childAt(i).get();
-    child->resize(static_cast<vector_size_t>(rows));
-  }
-
-  const auto& fileType = getFileType()->asRow();
+  const auto& fileType = getFileType();
   const size_t fileColumnCount = fileType.size();
-  if (fileToInputTypeIdx_.empty()) { // filled only once
-    fileToInputTypeIdx_.resize(fileColumnCount, kNotProjected);
-
-    const auto& scanSpecs = scanSpec_->children();
-    const size_t size = scanSpecs.size();
-    for (const auto& scanSpec : scanSpecs) {
-      VELOX_CHECK(
-          !scanSpec->hasFilter(),
-          "Filter pushdown isn't supported for TextReader");
-      if (scanSpec->channel() == ScanSpec::kNoChannel ||
-          !scanSpec->projectOut()) {
-        continue;
-      }
-
-      const auto& fileName = scanSpec->fieldName();
-      auto fileTypeIdx = fileType.getChildIdx(fileName);
-      fileToInputTypeIdx_[fileTypeIdx] = scanSpec->channel();
-    }
-  }
-
+  auto& children = rowVecPtr->children();
+  auto& fileTypes = fileType.children();
   vector_size_t rowsRead = 0;
   const auto initialPos = pos_;
   while (!atEOF_ && rowsRead < rows) {
@@ -340,16 +328,15 @@ uint64_t TextRowReader::next(
       }
 
       DelimType delim = DelimTypeNone;
-      auto childVector = rowVecPtr->childAt(inputTypeIdx).get();
+      VELOX_DCHECK_LT(inputTypeIdx, children.size());
+      auto childVector = children[inputTypeIdx].get();
 
       bool hadErrorBefore = rowHasError_;
-      (this->*columnReaders_[i])(
-          *fileType.childAt(i), childVector, rowsRead, delim);
+      VELOX_DCHECK_LT(i, fileTypes.size());
+      const auto& type = *fileTypes[i];
+      (this->*columnReaders_[i])(type, childVector, rowsRead, delim);
       if (rowHasError_ && !hadErrorBefore && contents_->onRowReject) {
-        std::string_view errorColumnName = fileType.nameOf(i);
-        const Type* errorColumnType = fileType.childAt(i).get();
-        RejectedRow err{
-            currentRow_, errorColumnName, *errorColumnType, errorValue_};
+        RejectedRow err{currentRow_, fileType.nameOf(i), type, errorValue_};
         contents_->onRowReject(err);
       }
     }
@@ -390,41 +377,6 @@ uint64_t TextRowReader::next(
   // Resize the row vector to the actual number of rows read.
   // Handled here for both cases: pos_ > fileLength_ and pos_ > limit_
   rowVecPtr->resize(rowsRead);
-
-  if (mutation) {
-    std::vector<uint64_t> passed(bits::nwords(rowsRead), -1);
-    if (mutation->deletedRows) {
-      bits::andWithNegatedBits(
-          passed.data(), mutation->deletedRows, 0, rowsRead);
-    }
-    if (mutation->randomSkip) {
-      bits::forEachSetBit(passed.data(), 0, rowsRead, [&](auto i) {
-        if (!mutation->randomSkip->testOne()) {
-          bits::clearBit(passed.data(), i);
-        }
-      });
-    }
-    auto numPassed = bits::countBits(passed.data(), 0, rowsRead);
-    if (numPassed == 0) {
-      rowVecPtr->resize(0);
-    } else if (numPassed < rowsRead) {
-      auto indices = allocateIndices(numPassed, rowVecPtr->pool());
-      auto* rawIndices = indices->asMutable<vector_size_t>();
-      vector_size_t j = 0;
-      bits::forEachSetBit(
-          passed.data(), 0, rowsRead, [&](auto i) { rawIndices[j++] = i; });
-      for (auto& child : rowVecPtr->children()) {
-        if (!child) {
-          continue;
-        }
-        child->disableMemo();
-        child = BaseVector::wrapInDictionary(
-            nullptr, indices, numPassed, std::move(child));
-      }
-      rowVecPtr->resize(numPassed);
-    }
-  }
-
   result = std::move(rowVecPtr);
   return result->size();
 }
@@ -450,17 +402,6 @@ std::optional<size_t> TextRowReader::estimatedRowSize() const {
   return std::nullopt;
 }
 
-const ColumnSelector& TextRowReader::getColumnSelector() const {
-  return columnSelector_;
-}
-
-std::shared_ptr<const TypeWithId> TextRowReader::getSelectedType() const {
-  if (!selectedSchema_) {
-    selectedSchema_ = columnSelector_.buildSelected();
-  }
-  return selectedSchema_;
-}
-
 uint64_t TextRowReader::getRowNumber() const {
   return currentRow_;
 }
@@ -475,21 +416,6 @@ uint64_t TextRowReader::seekToRow(uint64_t rowNumber) {
   }
 
   return currentRow_;
-}
-
-const RowReaderOptions& TextRowReader::getDefaultOpts() {
-  static RowReaderOptions defaultOpts;
-  return defaultOpts;
-}
-
-bool TextRowReader::isSelectedField(
-    const std::shared_ptr<const TypeWithId>& type) {
-  auto ci = type->id();
-  return columnSelector_.shouldReadNode(ci);
-}
-
-const char* TextRowReader::getStreamNameData() const {
-  return contents_->input->getName().data();
 }
 
 uint64_t TextRowReader::getLength() {
@@ -544,11 +470,6 @@ void TextRowReader::resetEOE(DelimType& delim) {
   if (delim >= d) {
     setNone(delim);
   }
-}
-
-bool TextRowReader::isEOE(DelimType delim) {
-  // Test if delim is the EOE at the current depth.
-  return (delim == (depth_ + DelimTypeEOE));
 }
 
 void TextRowReader::setEOR(DelimType& delim) {
@@ -932,6 +853,7 @@ bool TextRowReader::getBoolean(
           (static_cast<unsigned char>(str[2]) | 0x20U) == 'f') {
         return false;
       }
+      break;
     case 4:
       if ((static_cast<unsigned char>(str[0]) | 0x20U) == 't' &&
           (static_cast<unsigned char>(str[1]) | 0x20U) == 'r' &&
@@ -964,7 +886,6 @@ void TextRowReader::readElement(
     BaseVector* FOLLY_NULLABLE data,
     vector_size_t insertionRow,
     DelimType& delim) {
-  bool isNull = false;
   switch (t->kind()) {
     case TypeKind::INTEGER:
       if (t->isDate()) {
@@ -1041,27 +962,6 @@ void TextRowReader::readElement(
   ownedString_.clear();
 }
 
-uint64_t maxStreamsForType(const std::shared_ptr<const Type>& type) {
-  switch (type->kind()) {
-    case TypeKind::ROW:
-    case TypeKind::REAL:
-    case TypeKind::DOUBLE:
-    case TypeKind::BOOLEAN:
-    case TypeKind::TINYINT:
-    case TypeKind::ARRAY:
-    case TypeKind::MAP:
-    case TypeKind::VARBINARY:
-    case TypeKind::TIMESTAMP:
-    case TypeKind::INTEGER:
-    case TypeKind::BIGINT:
-    case TypeKind::SMALLINT:
-    case TypeKind::VARCHAR:
-      return 1;
-    default:
-      return 0;
-  }
-}
-
 template <class T, class reqT, class F>
 void TextRowReader::putValue(
     const F& f,
@@ -1082,14 +982,7 @@ void TextRowReader::putValue(
     return;
   }
 
-  // Cast to FlatVector<reqT>
-  auto flatVector = data ? data->asChecked<FlatVector<reqT>>() : nullptr;
-  if (!flatVector) {
-    VELOX_FAIL("Vector for column type does not match");
-    return;
-  }
-
-  // Handle null property.
+  auto flatVector = data->asChecked<FlatVector<reqT>>();
   if (isNull) {
     flatVector->setNull(insertionRow, isNull);
     return;
@@ -1098,8 +991,8 @@ void TextRowReader::putValue(
   flatVector->set(insertionRow, v);
 }
 
-const std::shared_ptr<const RowType>& TextRowReader::getFileType() const {
-  return contents_->schema;
+const RowType& TextRowReader::getFileType() const {
+  return *contents_->schema;
 }
 
 // Specialized column readers implementation
@@ -1205,12 +1098,6 @@ void TextRowReader::readVarChar(
   }
 
   const auto& flatVector = data->asChecked<FlatVector<StringView>>();
-  if (!flatVector) {
-    VELOX_FAIL(
-        "Vector for column type does not match: expected FlatVector<StringView>, got {}",
-        data ? data->type()->toString() : "null");
-    return;
-  }
 
   flatVector->set(
       insertionRow, StringView(str.data(), static_cast<int32_t>(str.size())));
@@ -1235,12 +1122,6 @@ void TextRowReader::readVarBinary(
   }
 
   const auto& flatVector = data->asChecked<FlatVector<StringView>>();
-  if (!flatVector) {
-    VELOX_FAIL(
-        "Vector for column type does not match: expected FlatVector<StringView>, got {}",
-        data ? data->type()->toString() : "null");
-    return;
-  }
 
   size_t len = str.size();
   const auto blen = encoding::Base64::calculateDecodedSize(str.data(), len);
@@ -1256,7 +1137,6 @@ void TextRowReader::readVarBinary(
   } else {
     varBinBuf_->resize(str.size());
     VELOX_CHECK_NOT_NULL(str.data());
-    len = str.size();
     memcpy(varBinBuf_->data(), str.data(), str.size());
     flatVector->set(
         insertionRow,
@@ -1301,12 +1181,6 @@ void TextRowReader::readTimestamp(
   }
 
   auto flatVector = data->asChecked<FlatVector<Timestamp>>();
-  if (!flatVector) {
-    VELOX_FAIL(
-        "Vector for column type does not match: expected FlatVector<Timestamp>, got {}",
-        data ? data->type()->toString() : "null");
-    return;
-  }
 
   if (str.empty()) {
     isNull = true;
@@ -1541,14 +1415,6 @@ TextReader::TextReader(
   auto schema = options_.fileSchema();
   VELOX_USER_CHECK_NOT_NULL(schema, "File schema for TEXT must be set.");
 
-  if (!schema) {
-    // Create dummy for testing.
-    internalSchema_ = std::dynamic_pointer_cast<const RowType>(
-        type::fbhive::HiveTypeParser().parse("struct<col0:string>"));
-    DWIO_ENSURE_NOT_NULL(internalSchema_.get());
-    schema = internalSchema_;
-  }
-  schemaWithId_ = TypeWithId::create(schema);
   contents_ = std::make_shared<FileContents>(options_.memoryPool(), schema);
 
   if (!contents_->schema->isRow()) {
