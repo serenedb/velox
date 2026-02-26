@@ -1200,7 +1200,7 @@ bool TextRowReader::readInteger(
     vector_size_t insertionRow,
     DelimType& delim,
     const velox::common::Filter* filter) {
-  return putValue<int32_t, int32_t, Filter>(
+  return putValue<int32_t, Filter>(
       getNumeric<int32_t>, data, insertionRow, delim, filter);
 }
 
@@ -1230,7 +1230,7 @@ bool TextRowReader::readBigInt(
     vector_size_t insertionRow,
     DelimType& delim,
     const velox::common::Filter* filter) {
-  return putValue<int64_t, int64_t, Filter>(
+  return putValue<int64_t, Filter>(
       getNumeric<int64_t>, data, insertionRow, delim, filter);
 }
 
@@ -1269,7 +1269,7 @@ bool TextRowReader::readSmallInt(
     vector_size_t insertionRow,
     DelimType& delim,
     const velox::common::Filter* filter) {
-  return putValue<int16_t, int16_t, Filter>(
+  return putValue<int16_t, Filter>(
       getNumeric<int16_t>, data, insertionRow, delim, filter);
 }
 
@@ -1280,7 +1280,7 @@ bool TextRowReader::readTinyInt(
     vector_size_t insertionRow,
     DelimType& delim,
     const velox::common::Filter* filter) {
-  return putValue<int8_t, int8_t, Filter>(
+  return putValue<int8_t, Filter>(
       getNumeric<int8_t>, data, insertionRow, delim, filter);
 }
 
@@ -1291,8 +1291,7 @@ bool TextRowReader::readBoolean(
     vector_size_t insertionRow,
     DelimType& delim,
     const velox::common::Filter* filter) {
-  return putValue<bool, bool, Filter>(
-      getBoolean, data, insertionRow, delim, filter);
+  return putValue<bool, Filter>(getBoolean, data, insertionRow, delim, filter);
 }
 
 template <typename Filter>
@@ -1412,7 +1411,7 @@ bool TextRowReader::readReal(
     vector_size_t insertionRow,
     DelimType& delim,
     const velox::common::Filter* filter) {
-  return putValue<float, float, Filter>(
+  return putValue<float, Filter>(
       getNumeric<float>, data, insertionRow, delim, filter);
 }
 
@@ -1423,7 +1422,7 @@ bool TextRowReader::readDouble(
     vector_size_t insertionRow,
     DelimType& delim,
     const velox::common::Filter* filter) {
-  return putValue<double, double, Filter>(
+  return putValue<double, Filter>(
       getNumeric<double>, data, insertionRow, delim, filter);
 }
 
