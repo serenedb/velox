@@ -173,7 +173,7 @@ class TextRowReader : public dwio::common::RowReader {
       vector_size_t insertionRow,
       DelimType& delim);
 
-  template <class T, class reqT, class TFilter, class F>
+  template <class T, class reqT, class Filter, class F>
   bool putValue(
       const F& f,
       BaseVector* FOLLY_NULLABLE data,
@@ -181,7 +181,7 @@ class TextRowReader : public dwio::common::RowReader {
       DelimType& delim,
       const velox::common::Filter* filter);
 
-  template <class T, class TFilter>
+  template <class T, class Filter>
   bool setValueFromString(
       std::string_view str,
       BaseVector* FOLLY_NULLABLE data,
@@ -235,119 +235,119 @@ class TextRowReader : public dwio::common::RowReader {
 
   // Specialized readers for each type, templatized on filter type.
   // Return true if value passes the filter, false if filtered out.
-  template <typename TFilter>
+  template <typename Filter>
   bool readInteger(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim,
       const velox::common::Filter* filter);
-  template <typename TFilter>
+  template <typename Filter>
   bool readDate(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim,
       const velox::common::Filter* filter);
-  template <typename TFilter>
+  template <typename Filter>
   bool readBigInt(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim,
       const velox::common::Filter* filter);
-  template <typename TFilter>
+  template <typename Filter>
   bool readBigIntDecimal(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim,
       const velox::common::Filter* filter);
-  template <typename TFilter>
+  template <typename Filter>
   bool readSmallInt(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim,
       const velox::common::Filter* filter);
-  template <typename TFilter>
+  template <typename Filter>
   bool readTinyInt(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim,
       const velox::common::Filter* filter);
-  template <typename TFilter>
+  template <typename Filter>
   bool readBoolean(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim,
       const velox::common::Filter* filter);
-  template <typename TFilter>
+  template <typename Filter>
   bool readVarChar(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim,
       const velox::common::Filter* filter);
-  template <typename TFilter>
+  template <typename Filter>
   bool readVarBinary(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim,
       const velox::common::Filter* filter);
-  template <typename TFilter>
+  template <typename Filter>
   bool readReal(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim,
       const velox::common::Filter* filter);
-  template <typename TFilter>
+  template <typename Filter>
   bool readDouble(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim,
       const velox::common::Filter* filter);
-  template <typename TFilter>
+  template <typename Filter>
   bool readTimestamp(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim,
       const velox::common::Filter* filter);
-  template <typename TFilter>
+  template <typename Filter>
   bool readHugeInt(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim,
       const velox::common::Filter* filter);
-  template <typename TFilter>
+  template <typename Filter>
   bool readHugeIntDecimal(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim,
       const velox::common::Filter* filter);
-  template <typename TFilter>
+  template <typename Filter>
   bool readArray(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim,
       const velox::common::Filter* filter);
-  template <typename TFilter>
+  template <typename Filter>
   bool readMap(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim,
       const velox::common::Filter* filter);
-  template <typename TFilter>
+  template <typename Filter>
   bool readRow(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,

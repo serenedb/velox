@@ -33,19 +33,19 @@ using common::CompressionKind;
 using dwio::common::EOFError;
 using dwio::common::RowReader;
 
-template <typename TFilter, typename T>
+template <typename Filter, typename T>
 inline bool testFilter(const velox::common::Filter* filter, T value) {
-  if constexpr (std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
+  if constexpr (std::is_same_v<Filter, velox::common::AlwaysTrue>) {
     return true;
   } else {
     return velox::common::applyFilter(
-        const_cast<TFilter&>(static_cast<const TFilter&>(*filter)), value);
+        const_cast<Filter&>(static_cast<const Filter&>(*filter)), value);
   }
 }
 
-template <typename TFilter>
+template <typename Filter>
 inline bool testFilterNull(const velox::common::Filter* filter) {
-  if constexpr (std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
+  if constexpr (std::is_same_v<Filter, velox::common::AlwaysTrue>) {
     return true;
   } else {
     return filter->testNull();
@@ -728,7 +728,7 @@ TextRowReader::getString(TextRowReader& th, bool& isNull, DelimType& delim) {
   return th.ownedStringView();
 }
 
-template <class T, class TFilter>
+template <class T, class Filter>
 bool TextRowReader::setValueFromString(
     std::string_view str,
     BaseVector* data,
@@ -744,21 +744,21 @@ bool TextRowReader::setValueFromString(
   if (data == nullptr) {
     // No output vector — still evaluate filter for non-projected columns.
     if (result) {
-      return testFilter<TFilter>(filter, *result);
+      return testFilter<Filter>(filter, *result);
     }
-    return testFilterNull<TFilter>(filter);
+    return testFilterNull<Filter>(filter);
   }
 
   auto flatVector = data->asUnchecked<FlatVector<T>>();
   if (result) {
-    if constexpr (!std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
-      if (!testFilter<TFilter>(filter, *result)) {
+    if constexpr (!std::is_same_v<Filter, velox::common::AlwaysTrue>) {
+      if (!testFilter<Filter>(filter, *result)) {
         return false;
       }
     }
     flatVector->set(insertionRow, *result);
   } else {
-    if constexpr (!std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
+    if constexpr (!std::is_same_v<Filter, velox::common::AlwaysTrue>) {
       if (!filter->testNull()) {
         return false;
       }
@@ -1138,7 +1138,7 @@ void TextRowReader::readElement(
   }
 }
 
-template <class T, class reqT, class TFilter, class F>
+template <class T, class reqT, class Filter, class F>
 bool TextRowReader::putValue(
     const F& f,
     BaseVector* FOLLY_NULLABLE data,
@@ -1161,14 +1161,14 @@ bool TextRowReader::putValue(
   if (data == nullptr) {
     // No output vector — still evaluate filter for non-projected columns.
     if (isNull) {
-      return testFilterNull<TFilter>(filter);
+      return testFilterNull<Filter>(filter);
     }
-    return testFilter<TFilter>(filter, v);
+    return testFilter<Filter>(filter, v);
   }
 
   auto flatVector = data->asUnchecked<FlatVector<reqT>>();
   if (isNull) {
-    if constexpr (!std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
+    if constexpr (!std::is_same_v<Filter, velox::common::AlwaysTrue>) {
       if (!filter->testNull()) {
         return false;
       }
@@ -1177,8 +1177,8 @@ bool TextRowReader::putValue(
     return true;
   }
 
-  if constexpr (!std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
-    if (!testFilter<TFilter>(filter, v)) {
+  if constexpr (!std::is_same_v<Filter, velox::common::AlwaysTrue>) {
+    if (!testFilter<Filter>(filter, v)) {
       return false;
     }
   }
@@ -1193,18 +1193,18 @@ const RowType& TextRowReader::getFileType() const {
 
 // Specialized column readers implementation
 
-template <typename TFilter>
+template <typename Filter>
 bool TextRowReader::readInteger(
     const Type& type,
     BaseVector* FOLLY_NULLABLE data,
     vector_size_t insertionRow,
     DelimType& delim,
     const velox::common::Filter* filter) {
-  return putValue<int32_t, int32_t, TFilter>(
+  return putValue<int32_t, int32_t, Filter>(
       getNumeric<int32_t>, data, insertionRow, delim, filter);
 }
 
-template <typename TFilter>
+template <typename Filter>
 bool TextRowReader::readDate(
     const Type& type,
     BaseVector* FOLLY_NULLABLE data,
@@ -1213,7 +1213,7 @@ bool TextRowReader::readDate(
     const velox::common::Filter* filter) {
   bool isNull = false;
   const auto str = getString(*this, isNull, delim);
-  return setValueFromString<int32_t, TFilter>(
+  return setValueFromString<int32_t, Filter>(
       str,
       data,
       insertionRow,
@@ -1223,18 +1223,18 @@ bool TextRowReader::readDate(
       filter);
 }
 
-template <typename TFilter>
+template <typename Filter>
 bool TextRowReader::readBigInt(
     const Type& type,
     BaseVector* FOLLY_NULLABLE data,
     vector_size_t insertionRow,
     DelimType& delim,
     const velox::common::Filter* filter) {
-  return putValue<int64_t, int64_t, TFilter>(
+  return putValue<int64_t, int64_t, Filter>(
       getNumeric<int64_t>, data, insertionRow, delim, filter);
 }
 
-template <typename TFilter>
+template <typename Filter>
 bool TextRowReader::readBigIntDecimal(
     const Type& type,
     BaseVector* FOLLY_NULLABLE data,
@@ -1246,7 +1246,7 @@ bool TextRowReader::readBigIntDecimal(
   auto decimalParams = getDecimalPrecisionScale(type);
   const auto precision = decimalParams.first;
   const auto scale = decimalParams.second;
-  return setValueFromString<int64_t, TFilter>(
+  return setValueFromString<int64_t, Filter>(
       str,
       data,
       insertionRow,
@@ -1262,40 +1262,40 @@ bool TextRowReader::readBigIntDecimal(
       filter);
 }
 
-template <typename TFilter>
+template <typename Filter>
 bool TextRowReader::readSmallInt(
     const Type& type,
     BaseVector* FOLLY_NULLABLE data,
     vector_size_t insertionRow,
     DelimType& delim,
     const velox::common::Filter* filter) {
-  return putValue<int16_t, int16_t, TFilter>(
+  return putValue<int16_t, int16_t, Filter>(
       getNumeric<int16_t>, data, insertionRow, delim, filter);
 }
 
-template <typename TFilter>
+template <typename Filter>
 bool TextRowReader::readTinyInt(
     const Type& type,
     BaseVector* FOLLY_NULLABLE data,
     vector_size_t insertionRow,
     DelimType& delim,
     const velox::common::Filter* filter) {
-  return putValue<int8_t, int8_t, TFilter>(
+  return putValue<int8_t, int8_t, Filter>(
       getNumeric<int8_t>, data, insertionRow, delim, filter);
 }
 
-template <typename TFilter>
+template <typename Filter>
 bool TextRowReader::readBoolean(
     const Type& type,
     BaseVector* FOLLY_NULLABLE data,
     vector_size_t insertionRow,
     DelimType& delim,
     const velox::common::Filter* filter) {
-  return putValue<bool, bool, TFilter>(
+  return putValue<bool, bool, Filter>(
       getBoolean, data, insertionRow, delim, filter);
 }
 
-template <typename TFilter>
+template <typename Filter>
 bool TextRowReader::readVarChar(
     const Type& type,
     BaseVector* FOLLY_NULLABLE data,
@@ -1312,13 +1312,13 @@ bool TextRowReader::readVarChar(
   if (data == nullptr) {
     // No output vector — still evaluate filter for non-projected columns.
     if (isNull) {
-      return testFilterNull<TFilter>(filter);
+      return testFilterNull<Filter>(filter);
     }
-    return testFilter<TFilter>(filter, str);
+    return testFilter<Filter>(filter, str);
   }
 
   if (isNull) {
-    if constexpr (!std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
+    if constexpr (!std::is_same_v<Filter, velox::common::AlwaysTrue>) {
       if (!filter->testNull()) {
         return false;
       }
@@ -1328,8 +1328,8 @@ bool TextRowReader::readVarChar(
     return true;
   }
 
-  if constexpr (!std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
-    if (!testFilter<TFilter>(filter, str)) {
+  if constexpr (!std::is_same_v<Filter, velox::common::AlwaysTrue>) {
+    if (!testFilter<Filter>(filter, str)) {
       return false;
     }
   }
@@ -1341,7 +1341,7 @@ bool TextRowReader::readVarChar(
   return true;
 }
 
-template <typename TFilter>
+template <typename Filter>
 bool TextRowReader::readVarBinary(
     const Type& type,
     BaseVector* FOLLY_NULLABLE data,
@@ -1358,13 +1358,13 @@ bool TextRowReader::readVarBinary(
   if (data == nullptr) {
     // No output vector — still evaluate filter for non-projected columns.
     if (isNull) {
-      return testFilterNull<TFilter>(filter);
+      return testFilterNull<Filter>(filter);
     }
-    return testFilter<TFilter>(filter, str);
+    return testFilter<Filter>(filter, str);
   }
 
   if (isNull) {
-    if constexpr (!std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
+    if constexpr (!std::is_same_v<Filter, velox::common::AlwaysTrue>) {
       if (!filter->testNull()) {
         return false;
       }
@@ -1374,8 +1374,8 @@ bool TextRowReader::readVarBinary(
     return true;
   }
 
-  if constexpr (!std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
-    if (!testFilter<TFilter>(filter, str)) {
+  if constexpr (!std::is_same_v<Filter, velox::common::AlwaysTrue>) {
+    if (!testFilter<Filter>(filter, str)) {
       return false;
     }
   }
@@ -1405,29 +1405,29 @@ bool TextRowReader::readVarBinary(
   return true;
 }
 
-template <typename TFilter>
+template <typename Filter>
 bool TextRowReader::readReal(
     const Type& type,
     BaseVector* FOLLY_NULLABLE data,
     vector_size_t insertionRow,
     DelimType& delim,
     const velox::common::Filter* filter) {
-  return putValue<float, float, TFilter>(
+  return putValue<float, float, Filter>(
       getNumeric<float>, data, insertionRow, delim, filter);
 }
 
-template <typename TFilter>
+template <typename Filter>
 bool TextRowReader::readDouble(
     const Type& type,
     BaseVector* FOLLY_NULLABLE data,
     vector_size_t insertionRow,
     DelimType& delim,
     const velox::common::Filter* filter) {
-  return putValue<double, double, TFilter>(
+  return putValue<double, double, Filter>(
       getNumeric<double>, data, insertionRow, delim, filter);
 }
 
-template <typename TFilter>
+template <typename Filter>
 bool TextRowReader::readTimestamp(
     const Type& type,
     BaseVector* FOLLY_NULLABLE data,
@@ -1444,19 +1444,19 @@ bool TextRowReader::readTimestamp(
   if (data == nullptr) {
     // No output vector — still evaluate filter for non-projected columns.
     if (str.empty()) {
-      return testFilterNull<TFilter>(filter);
+      return testFilterNull<Filter>(filter);
     }
     auto ts = util::Converter<TypeKind::TIMESTAMP>::tryCast(str).thenOrThrow(
         folly::identity,
         [&](const Status& status) { VELOX_USER_FAIL(status.message()); });
     auto value = Timestamp{ts.getSeconds(), ts.getNanos()};
-    return testFilter<TFilter>(filter, value);
+    return testFilter<Filter>(filter, value);
   }
 
   auto flatVector = data->asUnchecked<FlatVector<Timestamp>>();
 
   if (str.empty()) {
-    if constexpr (!std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
+    if constexpr (!std::is_same_v<Filter, velox::common::AlwaysTrue>) {
       if (!filter->testNull()) {
         return false;
       }
@@ -1467,8 +1467,8 @@ bool TextRowReader::readTimestamp(
         folly::identity,
         [&](const Status& status) { VELOX_USER_FAIL(status.message()); });
     auto value = Timestamp{ts.getSeconds(), ts.getNanos()};
-    if constexpr (!std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
-      if (!testFilter<TFilter>(filter, value)) {
+    if constexpr (!std::is_same_v<Filter, velox::common::AlwaysTrue>) {
+      if (!testFilter<Filter>(filter, value)) {
         return false;
       }
     }
@@ -1478,7 +1478,7 @@ bool TextRowReader::readTimestamp(
   return true;
 }
 
-template <typename TFilter>
+template <typename Filter>
 bool TextRowReader::readHugeInt(
     const Type& type,
     BaseVector* FOLLY_NULLABLE data,
@@ -1487,7 +1487,7 @@ bool TextRowReader::readHugeInt(
     const velox::common::Filter* filter) {
   bool isNull = false;
   const auto str = getString(*this, isNull, delim);
-  return setValueFromString<int128_t, TFilter>(
+  return setValueFromString<int128_t, Filter>(
       str,
       data,
       insertionRow,
@@ -1497,7 +1497,7 @@ bool TextRowReader::readHugeInt(
       filter);
 }
 
-template <typename TFilter>
+template <typename Filter>
 bool TextRowReader::readHugeIntDecimal(
     const Type& type,
     BaseVector* FOLLY_NULLABLE data,
@@ -1509,7 +1509,7 @@ bool TextRowReader::readHugeIntDecimal(
   auto decimalParams = getDecimalPrecisionScale(type);
   const auto precision = decimalParams.first;
   const auto scale = decimalParams.second;
-  return setValueFromString<int128_t, TFilter>(
+  return setValueFromString<int128_t, Filter>(
       str,
       data,
       insertionRow,
@@ -1525,7 +1525,7 @@ bool TextRowReader::readHugeIntDecimal(
       filter);
 }
 
-template <typename TFilter>
+template <typename Filter>
 bool TextRowReader::readArray(
     const Type& type,
     BaseVector* FOLLY_NULLABLE data,
@@ -1579,7 +1579,7 @@ bool TextRowReader::readArray(
   return true;
 }
 
-template <typename TFilter>
+template <typename Filter>
 bool TextRowReader::readMap(
     const Type& type,
     BaseVector* FOLLY_NULLABLE data,
@@ -1651,7 +1651,7 @@ bool TextRowReader::readMap(
   return true;
 }
 
-template <typename TFilter>
+template <typename Filter>
 bool TextRowReader::readRow(
     const Type& type,
     BaseVector* FOLLY_NULLABLE data,
