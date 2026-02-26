@@ -79,7 +79,7 @@ void resizeVector(
       auto newSize = dataSize * 2;
       data->resize(newSize);
 
-      auto arrayVector = data->asChecked<ArrayVector>();
+      auto arrayVector = data->asUnchecked<ArrayVector>();
       auto rawOffsets = arrayVector->offsets()->asMutable<vector_size_t>();
       auto rawSizes = arrayVector->sizes()->asMutable<vector_size_t>();
 
@@ -96,7 +96,7 @@ void resizeVector(
       auto newSize = dataSize * 2;
       data->resize(newSize);
 
-      auto mapVector = data->asChecked<MapVector>();
+      auto mapVector = data->asUnchecked<MapVector>();
       auto rawOffsets = mapVector->offsets()->asMutable<vector_size_t>();
       auto rawSizes = mapVector->sizes()->asMutable<vector_size_t>();
 
@@ -749,7 +749,7 @@ bool TextRowReader::setValueFromString(
     return testFilterNull<TFilter>(filter);
   }
 
-  auto flatVector = data->asChecked<FlatVector<T>>();
+  auto flatVector = data->asUnchecked<FlatVector<T>>();
   if (result) {
     if constexpr (!std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
       if (!testFilter<TFilter>(filter, *result)) {
@@ -1166,7 +1166,7 @@ bool TextRowReader::putValue(
     return testFilter<TFilter>(filter, v);
   }
 
-  auto flatVector = data->asChecked<FlatVector<reqT>>();
+  auto flatVector = data->asUnchecked<FlatVector<reqT>>();
   if (isNull) {
     if constexpr (!std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
       if (!filter->testNull()) {
@@ -1323,7 +1323,7 @@ bool TextRowReader::readVarChar(
         return false;
       }
     }
-    const auto& flatVector = data->asChecked<FlatVector<StringView>>();
+    const auto& flatVector = data->asUnchecked<FlatVector<StringView>>();
     flatVector->setNull(insertionRow, true);
     return true;
   }
@@ -1334,7 +1334,7 @@ bool TextRowReader::readVarChar(
     }
   }
 
-  const auto& flatVector = data->asChecked<FlatVector<StringView>>();
+  const auto& flatVector = data->asUnchecked<FlatVector<StringView>>();
   flatVector->set(
       insertionRow, StringView(str.data(), static_cast<int32_t>(str.size())));
 
@@ -1369,7 +1369,7 @@ bool TextRowReader::readVarBinary(
         return false;
       }
     }
-    const auto& flatVector = data->asChecked<FlatVector<StringView>>();
+    const auto& flatVector = data->asUnchecked<FlatVector<StringView>>();
     flatVector->setNull(insertionRow, true);
     return true;
   }
@@ -1380,7 +1380,7 @@ bool TextRowReader::readVarBinary(
     }
   }
 
-  const auto& flatVector = data->asChecked<FlatVector<StringView>>();
+  const auto& flatVector = data->asUnchecked<FlatVector<StringView>>();
 
   size_t len = str.size();
   const auto blen = encoding::Base64::calculateDecodedSize(str.data(), len);
@@ -1453,7 +1453,7 @@ bool TextRowReader::readTimestamp(
     return testFilter<TFilter>(filter, value);
   }
 
-  auto flatVector = data->asChecked<FlatVector<Timestamp>>();
+  auto flatVector = data->asUnchecked<FlatVector<Timestamp>>();
 
   if (str.empty()) {
     if constexpr (!std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
@@ -1534,7 +1534,7 @@ bool TextRowReader::readArray(
     const velox::common::Filter* filter) {
   bool isNull = false;
   const auto& ct = type.childAt(0);
-  const auto& arrayVector = data ? data->asChecked<ArrayVector>() : nullptr;
+  const auto& arrayVector = data ? data->asUnchecked<ArrayVector>() : nullptr;
 
   incrementDepth();
   (void)getEOR(delim, isNull);
@@ -1590,7 +1590,7 @@ bool TextRowReader::readMap(
   const auto& mapt = type.asMap();
   const auto& key = mapt.keyType();
   const auto& value = mapt.valueType();
-  const auto& mapVector = data ? data->asChecked<MapVector>() : nullptr;
+  const auto& mapVector = data ? data->asUnchecked<MapVector>() : nullptr;
   incrementDepth();
   (void)getEOR(delim, isNull);
 
@@ -1660,7 +1660,7 @@ bool TextRowReader::readRow(
     const velox::common::Filter* filter) {
   bool isNull = false;
   const auto& childCount = type.size();
-  const auto& rowVector = data ? data->asChecked<RowVector>() : nullptr;
+  const auto& rowVector = data ? data->asUnchecked<RowVector>() : nullptr;
   incrementDepth();
 
   if (rowVector != nullptr) {
