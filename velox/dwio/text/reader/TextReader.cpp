@@ -33,10 +33,6 @@ using common::CompressionKind;
 using dwio::common::EOFError;
 using dwio::common::RowReader;
 
-/// Helper to test a parsed value against a compile-time-known filter type.
-/// For AlwaysTrue the check is elided entirely (zero overhead).
-/// Note: applyFilter takes TFilter& (non-const) but all test methods are const,
-/// so const_cast is safe here.
 template <typename TFilter, typename T>
 inline bool testFilter(const velox::common::Filter* filter, T value) {
   if constexpr (std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
@@ -434,36 +430,50 @@ uint64_t TextRowReader::next(
 
   RowVectorPtr rowVecPtr = std::dynamic_pointer_cast<RowVector>(result);
   rowVecPtr->resize(static_cast<vector_size_t>(rows));
+  auto& children = rowVecPtr->children();
 
   const auto& fileType = getFileType();
+  const auto& fileTypes = fileType.children();
+  const auto& fileNames = fileType.names();
   const size_t fileColumnCount = fileType.size();
-  auto& children = rowVecPtr->children();
-  auto& fileTypes = fileType.children();
+
   vector_size_t rowsRead = 0;
   const auto initialPos = pos_;
   while (!atEOF_ && rowsRead < rows) {
     resetLine();
     rowHasError_ = false;
     bool skipRows = false;
-    for (vector_size_t i = 0; i < fileColumnCount; i++) {
+    for (size_t i = 0; i < fileColumnCount; i++) {
       const auto& col = fileColumns_[i];
-      if (col.resultVectorIdx == kNotProjected || skipRows) {
+      DelimType delim = DelimTypeNone;
+      if (skipRows) {
         bool isNull = false;
-        DelimType delim = DelimTypeNone;
         getString(*this, isNull, delim);
         continue;
       }
 
-      DelimType delim = DelimTypeNone;
-      VELOX_DCHECK_LT(col.resultVectorIdx, children.size());
-      auto childVector = children[col.resultVectorIdx].get();
-      VELOX_DCHECK_LT(i, fileTypes.size());
+      BaseVector* childVector;
+      if (col.resultVectorIdx == kNotProjected) {
+        if (!col.filter) {
+          bool isNull = false;
+          getString(*this, isNull, delim);
+          continue;
+        }
+        // else ->
+        // column not projected but has a filter we just
+        // parse it and test the filter.
+        childVector = nullptr;
+      } else {
+        VELOX_DCHECK_LT(col.resultVectorIdx, children.size());
+        childVector = children[col.resultVectorIdx].get();
+      }
+
       const auto& type = *fileTypes[i];
       // columnReader returns true -> filterOk, else filterFailed
       skipRows =
           !(this->*col.reader)(type, childVector, rowsRead, delim, col.filter);
       if (rowHasError_ && contents_->onRowReject) {
-        RejectedRow err{currentRow_, fileType.nameOf(i), type, errorValue_};
+        RejectedRow err{currentRow_, fileNames[i], type, errorValue_};
         contents_->onRowReject(err);
         skipRows = true;
       }
@@ -686,11 +696,21 @@ bool TextRowReader::setValueFromString(
     vector_size_t insertionRow,
     std::function<std::optional<T>(std::string_view)> convert,
     const velox::common::Filter* filter) {
-  if ((atEOF_ && atSOL_) || data == nullptr) {
+  if (atEOF_ && atSOL_) {
     return true;
   }
-  auto flatVector = data->asChecked<FlatVector<T>>();
+
   auto result = str.empty() ? std::nullopt : convert(str);
+
+  if (data == nullptr) {
+    // No output vector — still evaluate filter for non-projected columns.
+    if (result) {
+      return testFilter<TFilter>(filter, *result);
+    }
+    return testFilterNull<TFilter>(filter);
+  }
+
+  auto flatVector = data->asChecked<FlatVector<T>>();
   if (result) {
     if constexpr (!std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
       if (!testFilter<TFilter>(filter, *result)) {
@@ -1095,9 +1115,16 @@ bool TextRowReader::putValue(
     v = f(*this, isNull, delim);
   }
 
-  // Early return if no data vector or at EOF
-  if ((atEOF_ && atSOL_) || (data == nullptr)) {
+  if (atEOF_ && atSOL_) {
     return true;
+  }
+
+  if (data == nullptr) {
+    // No output vector — still evaluate filter for non-projected columns.
+    if (isNull) {
+      return testFilterNull<TFilter>(filter);
+    }
+    return testFilter<TFilter>(filter, v);
   }
 
   auto flatVector = data->asChecked<FlatVector<reqT>>();
@@ -1239,8 +1266,16 @@ bool TextRowReader::readVarChar(
   bool isNull = false;
   const auto str = getString(*this, isNull, delim);
 
-  if ((atEOF_ && atSOL_) || (data == nullptr)) {
+  if (atEOF_ && atSOL_) {
     return true;
+  }
+
+  if (data == nullptr) {
+    // No output vector — still evaluate filter for non-projected columns.
+    if (isNull) {
+      return testFilterNull<TFilter>(filter);
+    }
+    return testFilter<TFilter>(filter, str);
   }
 
   if (isNull) {
@@ -1277,8 +1312,16 @@ bool TextRowReader::readVarBinary(
   bool isNull = false;
   const auto str = getString(*this, isNull, delim);
 
-  if ((atEOF_ && atSOL_) || (data == nullptr)) {
+  if (atEOF_ && atSOL_) {
     return true;
+  }
+
+  if (data == nullptr) {
+    // No output vector — still evaluate filter for non-projected columns.
+    if (isNull) {
+      return testFilterNull<TFilter>(filter);
+    }
+    return testFilter<TFilter>(filter, str);
   }
 
   if (isNull) {
@@ -1355,8 +1398,20 @@ bool TextRowReader::readTimestamp(
   bool isNull = false;
   const auto str = getString(*this, isNull, delim);
 
-  if ((atEOF_ && atSOL_) || (data == nullptr)) {
+  if (atEOF_ && atSOL_) {
     return true;
+  }
+
+  if (data == nullptr) {
+    // No output vector — still evaluate filter for non-projected columns.
+    if (str.empty()) {
+      return testFilterNull<TFilter>(filter);
+    }
+    auto ts = util::Converter<TypeKind::TIMESTAMP>::tryCast(str).thenOrThrow(
+        folly::identity,
+        [&](const Status& status) { VELOX_USER_FAIL(status.message()); });
+    auto value = Timestamp{ts.getSeconds(), ts.getNanos()};
+    return testFilter<TFilter>(filter, value);
   }
 
   auto flatVector = data->asChecked<FlatVector<Timestamp>>();
