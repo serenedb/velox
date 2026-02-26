@@ -57,7 +57,6 @@ struct FileContents {
   CompressionKind compression;
   dwio::common::compression::CompressionOptions compressionOptions;
   SerDeOptions serDeOptions;
-  std::array<bool, 128> needsEscape;
 
   OnRowReject onRowReject;
 };
@@ -69,25 +68,19 @@ constexpr DelimType DelimTypeEOE = 2;
 
 class TextReader : public dwio::common::Reader {
  public:
-  TextReader(
-      const ReaderOptions& options,
-      std::unique_ptr<BufferedInput> input);
+  TextReader(ReaderOptions options, std::unique_ptr<BufferedInput> input);
 
-  std::optional<uint64_t> numberOfRows() const override;
+  std::optional<uint64_t> numberOfRows() const final;
 
   std::unique_ptr<ColumnStatistics> columnStatistics(
-      uint32_t index) const override;
+      uint32_t index) const final;
 
-  const RowTypePtr& rowType() const override;
+  const RowTypePtr& rowType() const final;
 
-  CompressionKind getCompression() const;
-
-  const std::shared_ptr<const TypeWithId>& typeWithId() const override;
+  const std::shared_ptr<const TypeWithId>& typeWithId() const final;
 
   std::unique_ptr<dwio::common::RowReader> createRowReader(
-      const RowReaderOptions& options) const override;
-
-  uint64_t getFileLength() const;
+      const RowReaderOptions& options) const final;
 
  private:
   ReaderOptions options_;
@@ -104,20 +97,23 @@ class TextRowReader : public dwio::common::RowReader {
   uint64_t next(
       uint64_t size,
       VectorPtr& result,
-      const Mutation* mutation = nullptr) override;
+      const Mutation* mutation = nullptr) final;
 
-  int64_t nextRowNumber() override;
+  int64_t nextRowNumber() final {
+    return atEOF_ ? -1 : static_cast<int64_t>(currentRow_) + 1;
+  }
 
-  int64_t nextReadSize(uint64_t size) override;
+  int64_t nextReadSize(uint64_t size) final {
+    return static_cast<int64_t>(std::min(fileLength_ - currentRow_, size));
+  }
 
-  void updateRuntimeStats(
-      dwio::common::RuntimeStatistics& stats) const override;
+  void updateRuntimeStats(dwio::common::RuntimeStatistics& stats) const final {}
 
-  void resetFilterCaches() override;
+  void resetFilterCaches() final {}
 
-  std::optional<size_t> estimatedRowSize() const override;
-
-  uint64_t getRowNumber() const;
+  std::optional<size_t> estimatedRowSize() const final {
+    return std::nullopt;
+  }
 
   uint64_t seekToRow(uint64_t rowNumber);
 
@@ -229,87 +225,104 @@ class TextRowReader : public dwio::common::RowReader {
 
   void initializeColumnReaders();
 
-  // Specialized readers for each type
+  // Specialized readers for each type, templatized on filter type.
+  template <typename TFilter>
   void readInteger(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
+  template <typename TFilter>
   void readDate(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
+  template <typename TFilter>
   void readBigInt(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
+  template <typename TFilter>
   void readBigIntDecimal(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
+  template <typename TFilter>
   void readSmallInt(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
+  template <typename TFilter>
   void readTinyInt(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
+  template <typename TFilter>
   void readBoolean(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
+  template <typename TFilter>
   void readVarChar(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
+  template <typename TFilter>
   void readVarBinary(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
+  template <typename TFilter>
   void readReal(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
+  template <typename TFilter>
   void readDouble(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
+  template <typename TFilter>
   void readTimestamp(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
+  template <typename TFilter>
   void readHugeInt(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
+  template <typename TFilter>
   void readHugeIntDecimal(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
+  template <typename TFilter>
   void readArray(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
+  template <typename TFilter>
   void readMap(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
       DelimType& delim);
+  template <typename TFilter>
   void readRow(
       const Type& type,
       BaseVector* FOLLY_NULLABLE data,
