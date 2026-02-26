@@ -43,7 +43,6 @@ inline bool testFilter(const velox::common::Filter* filter, T value) {
   }
 }
 
-/// Helper to test whether a NULL value passes the filter.
 template <typename TFilter>
 inline bool testFilterNull(const velox::common::Filter* filter) {
   if constexpr (std::is_same_v<TFilter, velox::common::AlwaysTrue>) {
