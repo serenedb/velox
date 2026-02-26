@@ -215,118 +215,114 @@ TextRowReader::TextRowReader(
 // Macro to dispatch a templatized column reader based on filter kind.
 // Each reader is template<typename TFilter>; this switch selects the right
 // instantiation and pushes it into columnReaders_.
-// clang-format off
-#define TEXT_DISPATCH_FILTER(readerFunc, filterPtr)                              \
-  do {                                                                          \
-    const auto _fKind = (filterPtr)                                             \
-        ? (filterPtr)->kind()                                                   \
-        : velox::common::FilterKind::kAlwaysTrue;                               \
-    switch (_fKind) {                                                           \
-      case velox::common::FilterKind::kAlwaysFalse:                             \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::AlwaysFalse>);            \
-        break;                                                                  \
-      case velox::common::FilterKind::kAlwaysTrue:                              \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::AlwaysTrue>);             \
-        break;                                                                  \
-      case velox::common::FilterKind::kIsNull:                                  \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::IsNull>);                 \
-        break;                                                                  \
-      case velox::common::FilterKind::kIsNotNull:                               \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::IsNotNull>);              \
-        break;                                                                  \
-      case velox::common::FilterKind::kBoolValue:                               \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::BoolValue>);              \
-        break;                                                                  \
-      case velox::common::FilterKind::kBigintRange:                             \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::BigintRange>);            \
-        break;                                                                  \
-      case velox::common::FilterKind::kNegatedBigintRange:                      \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::NegatedBigintRange>);     \
-        break;                                                                  \
-      case velox::common::FilterKind::kBigintValuesUsingHashTable:              \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<                                          \
-                velox::common::BigintValuesUsingHashTable>);                     \
-        break;                                                                  \
-      case velox::common::FilterKind::kBigintValuesUsingBitmask:                \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<                                          \
-                velox::common::BigintValuesUsingBitmask>);                       \
-        break;                                                                  \
-      case velox::common::FilterKind::kNegatedBigintValuesUsingHashTable:       \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<                                          \
-                velox::common::NegatedBigintValuesUsingHashTable>);             \
-        break;                                                                  \
-      case velox::common::FilterKind::kNegatedBigintValuesUsingBitmask:         \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<                                          \
-                velox::common::NegatedBigintValuesUsingBitmask>);               \
-        break;                                                                  \
-      case velox::common::FilterKind::kBigintValuesUsingBloomFilter:            \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<                                          \
-                velox::common::BigintValuesUsingBloomFilter>);                   \
-        break;                                                                  \
-      case velox::common::FilterKind::kDoubleRange:                             \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::DoubleRange>);            \
-        break;                                                                  \
-      case velox::common::FilterKind::kFloatRange:                              \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::FloatRange>);             \
-        break;                                                                  \
-      case velox::common::FilterKind::kBytesRange:                              \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::BytesRange>);             \
-        break;                                                                  \
-      case velox::common::FilterKind::kNegatedBytesRange:                       \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::NegatedBytesRange>);      \
-        break;                                                                  \
-      case velox::common::FilterKind::kBytesValues:                             \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::BytesValues>);            \
-        break;                                                                  \
-      case velox::common::FilterKind::kNegatedBytesValues:                      \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::NegatedBytesValues>);     \
-        break;                                                                  \
-      case velox::common::FilterKind::kBigintMultiRange:                        \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::BigintMultiRange>);       \
-        break;                                                                  \
-      case velox::common::FilterKind::kMultiRange:                              \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::MultiRange>);             \
-        break;                                                                  \
-      case velox::common::FilterKind::kHugeintRange:                            \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::HugeintRange>);           \
-        break;                                                                  \
-      case velox::common::FilterKind::kTimestampRange:                          \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::TimestampRange>);         \
-        break;                                                                  \
-      case velox::common::FilterKind::kHugeintValuesUsingHashTable:             \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<                                          \
-                velox::common::HugeintValuesUsingHashTable>);                   \
-        break;                                                                  \
-      default:                                                                  \
-        columnReaders_.push_back(                                               \
-            &TextRowReader::readerFunc<velox::common::Filter>);                 \
-        break;                                                                  \
-    }                                                                           \
+#define TEXT_DISPATCH_FILTER(readerFunc, filterPtr)                            \
+  do {                                                                         \
+    const auto _fKind = (filterPtr) ? (filterPtr)->kind()                      \
+                                    : velox::common::FilterKind::kAlwaysTrue;  \
+    switch (_fKind) {                                                          \
+      case velox::common::FilterKind::kAlwaysFalse:                            \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::AlwaysFalse>);           \
+        break;                                                                 \
+      case velox::common::FilterKind::kAlwaysTrue:                             \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::AlwaysTrue>);            \
+        break;                                                                 \
+      case velox::common::FilterKind::kIsNull:                                 \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::IsNull>);                \
+        break;                                                                 \
+      case velox::common::FilterKind::kIsNotNull:                              \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::IsNotNull>);             \
+        break;                                                                 \
+      case velox::common::FilterKind::kBoolValue:                              \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::BoolValue>);             \
+        break;                                                                 \
+      case velox::common::FilterKind::kBigintRange:                            \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::BigintRange>);           \
+        break;                                                                 \
+      case velox::common::FilterKind::kNegatedBigintRange:                     \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::NegatedBigintRange>);    \
+        break;                                                                 \
+      case velox::common::FilterKind::kBigintValuesUsingHashTable:             \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<                                        \
+                velox::common::BigintValuesUsingHashTable>);                   \
+        break;                                                                 \
+      case velox::common::FilterKind::kBigintValuesUsingBitmask:               \
+        columnReaders_.emplace_back(&TextRowReader::readerFunc<                \
+                                    velox::common::BigintValuesUsingBitmask>); \
+        break;                                                                 \
+      case velox::common::FilterKind::kNegatedBigintValuesUsingHashTable:      \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<                                        \
+                velox::common::NegatedBigintValuesUsingHashTable>);            \
+        break;                                                                 \
+      case velox::common::FilterKind::kNegatedBigintValuesUsingBitmask:        \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<                                        \
+                velox::common::NegatedBigintValuesUsingBitmask>);              \
+        break;                                                                 \
+      case velox::common::FilterKind::kBigintValuesUsingBloomFilter:           \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<                                        \
+                velox::common::BigintValuesUsingBloomFilter>);                 \
+        break;                                                                 \
+      case velox::common::FilterKind::kDoubleRange:                            \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::DoubleRange>);           \
+        break;                                                                 \
+      case velox::common::FilterKind::kFloatRange:                             \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::FloatRange>);            \
+        break;                                                                 \
+      case velox::common::FilterKind::kBytesRange:                             \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::BytesRange>);            \
+        break;                                                                 \
+      case velox::common::FilterKind::kNegatedBytesRange:                      \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::NegatedBytesRange>);     \
+        break;                                                                 \
+      case velox::common::FilterKind::kBytesValues:                            \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::BytesValues>);           \
+        break;                                                                 \
+      case velox::common::FilterKind::kNegatedBytesValues:                     \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::NegatedBytesValues>);    \
+        break;                                                                 \
+      case velox::common::FilterKind::kBigintMultiRange:                       \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::BigintMultiRange>);      \
+        break;                                                                 \
+      case velox::common::FilterKind::kMultiRange:                             \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::MultiRange>);            \
+        break;                                                                 \
+      case velox::common::FilterKind::kHugeintRange:                           \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::HugeintRange>);          \
+        break;                                                                 \
+      case velox::common::FilterKind::kTimestampRange:                         \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::TimestampRange>);        \
+        break;                                                                 \
+      case velox::common::FilterKind::kHugeintValuesUsingHashTable:            \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<                                        \
+                velox::common::HugeintValuesUsingHashTable>);                  \
+        break;                                                                 \
+      default:                                                                 \
+        columnReaders_.emplace_back(                                           \
+            &TextRowReader::readerFunc<velox::common::Filter>);                \
+        break;                                                                 \
+    }                                                                          \
   } while (0)
-// clang-format on
 
 void TextRowReader::initializeColumnReaders() {
   const auto& fileType = getFileType();
