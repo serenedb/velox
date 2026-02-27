@@ -467,6 +467,7 @@ uint64_t TextRowReader::next(
     return 0;
   }
 
+  const auto startRow = currentRow_;
   RowVectorPtr rowVecPtr = std::dynamic_pointer_cast<RowVector>(result);
   rowVecPtr->resize(static_cast<vector_size_t>(rows));
   auto& children = rowVecPtr->children();
@@ -547,7 +548,7 @@ uint64_t TextRowReader::next(
 
     // handle empty file
     if (initialPos == pos_ && atEOF_) {
-      currentRow_ = 0;
+      currentRow_ = startRow;
       acceptedRows = 0;
     }
   }
@@ -557,7 +558,8 @@ uint64_t TextRowReader::next(
   rowVecPtr->resize(acceptedRows);
   processMutation(rowVecPtr, mutation);
   result = std::move(rowVecPtr);
-  return currentRow_;
+  VELOX_DCHECK_GE(currentRow_, startRow);
+  return currentRow_ - startRow;
 }
 
 uint64_t TextRowReader::seekToRow(uint64_t rowNumber) {
