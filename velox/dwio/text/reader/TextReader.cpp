@@ -424,27 +424,28 @@ void processMutation(RowVectorPtr& rowVecPtr, const Mutation* mutation) {
   if (!mutation) {
     return;
   }
-  const auto rowsRead = rowVecPtr->size();
-  std::vector<uint64_t> passed(bits::nwords(rowsRead), -1);
+  const auto acceptedRows = rowVecPtr->size();
+  std::vector<uint64_t> passed(bits::nwords(acceptedRows), -1);
   if (mutation->deletedRows) {
-    bits::andWithNegatedBits(passed.data(), mutation->deletedRows, 0, rowsRead);
+    bits::andWithNegatedBits(
+        passed.data(), mutation->deletedRows, 0, acceptedRows);
   }
   if (mutation->randomSkip) {
-    bits::forEachSetBit(passed.data(), 0, rowsRead, [&](auto i) {
+    bits::forEachSetBit(passed.data(), 0, acceptedRows, [&](auto i) {
       if (!mutation->randomSkip->testOne()) {
         bits::clearBit(passed.data(), i);
       }
     });
   }
-  auto numPassed = bits::countBits(passed.data(), 0, rowsRead);
+  auto numPassed = bits::countBits(passed.data(), 0, acceptedRows);
   if (numPassed == 0) {
     rowVecPtr->resize(0);
-  } else if (numPassed < rowsRead) {
+  } else if (numPassed < acceptedRows) {
     auto indices = allocateIndices(numPassed, rowVecPtr->pool());
     auto* rawIndices = indices->asMutable<vector_size_t>();
     vector_size_t j = 0;
     bits::forEachSetBit(
-        passed.data(), 0, rowsRead, [&](auto i) { rawIndices[j++] = i; });
+        passed.data(), 0, acceptedRows, [&](auto i) { rawIndices[j++] = i; });
     for (auto& child : rowVecPtr->children()) {
       if (!child) {
         continue;
@@ -475,9 +476,9 @@ uint64_t TextRowReader::next(
   const auto& fileNames = fileType.names();
   const size_t fileColumnCount = fileType.size();
 
-  vector_size_t rowsRead = 0;
+  vector_size_t acceptedRows = 0;
   const auto initialPos = pos_;
-  while (!atEOF_ && rowsRead < rows) {
+  while (!atEOF_ && acceptedRows < rows) {
     resetLine();
     rowHasError_ = false;
     bool skipRows = false;
@@ -508,8 +509,8 @@ uint64_t TextRowReader::next(
 
       const auto& type = *fileTypes[i];
       // columnReader returns true -> filterOk, else filterFailed
-      skipRows =
-          !(this->*col.reader)(type, childVector, rowsRead, delim, col.filter);
+      skipRows = !(this->*col.reader)(
+          type, childVector, acceptedRows, delim, col.filter);
       if (rowHasError_ && contents_->onRowReject) {
         RejectedRow err{currentRow_, fileNames[i], type, errorValue_};
         contents_->onRowReject(err);
@@ -530,7 +531,7 @@ uint64_t TextRowReader::next(
       // we reject that error so we don't increment the size
       // (incrementing size means that we append null on error)
     } else {
-      ++rowsRead;
+      ++acceptedRows;
     }
 
     bool eof = false;
@@ -547,16 +548,16 @@ uint64_t TextRowReader::next(
     // handle empty file
     if (initialPos == pos_ && atEOF_) {
       currentRow_ = 0;
-      rowsRead = 0;
+      acceptedRows = 0;
     }
   }
 
   // Resize the row vector to the actual number of rows read.
   // Handled here for both cases: pos_ > fileLength_ and pos_ > limit_
-  rowVecPtr->resize(rowsRead);
+  rowVecPtr->resize(acceptedRows);
   processMutation(rowVecPtr, mutation);
   result = std::move(rowVecPtr);
-  return result->size();
+  return currentRow_;
 }
 
 uint64_t TextRowReader::seekToRow(uint64_t rowNumber) {
