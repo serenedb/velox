@@ -30,7 +30,6 @@ namespace {
 
 using common::CompressionKind;
 
-using dwio::common::EOFError;
 using dwio::common::RowReader;
 
 template <typename Filter, typename T>
@@ -164,11 +163,26 @@ TextRowReader::TextRowReader(
       atSOL_{false},
       atPhysicalEOF_{false},
       depth_{0},
-      unreadIdx_{0},
+      hasEscape_{fileContents->serDeOptions.isEscaped},
+      escapeChar_{fileContents->serDeOptions.escapeChar},
+      separators_{fileContents->serDeOptions.separators},
       limit_{opts.limit()},
       fileLength_{getStreamLength()},
       varBinBuf_{
           std::make_shared<dwio::common::DataBuffer<char>>(contents_->pool)} {
+  // Build per-depth lookup tables: isSpecialCharByDepth_[d][v] is true if
+  // byte v is '\n', '\r', a separator at depth <= d, or the escape char.
+  for (int d = 0; d < 8; ++d) {
+    isSpecialCharByDepth_[d].fill(false);
+    isSpecialCharByDepth_[d]['\n'] = true;
+    isSpecialCharByDepth_[d]['\r'] = true;
+    for (int p = 0; p <= d; ++p) {
+      isSpecialCharByDepth_[d][separators_[p]] = true;
+    }
+    if (hasEscape_) {
+      isSpecialCharByDepth_[d][escapeChar_] = true;
+    }
+  }
   initializeColumnReaders();
   // Seek to first line at or after the specified region.
   if (contents_->compression == CompressionKind::CompressionKind_NONE) {
@@ -191,7 +205,7 @@ TextRowReader::TextRowReader(
         dwio::common::LogType::STREAM);
 
     if (pos_ != 0) {
-      unreadData_.clear();
+      unreadData_ = {};
       skipLine();
     }
     if (opts.skipRows() > 0) {
@@ -487,16 +501,14 @@ uint64_t TextRowReader::next(
       const auto& col = fileColumns_[i];
       DelimType delim = DelimTypeNone;
       if (skipRows) {
-        bool isNull = false;
-        getString(*this, isNull, delim);
+        skipField(delim);
         continue;
       }
 
       BaseVector* childVector;
       if (col.resultVectorIdx == kNotProjected) {
         if (!col.filter) {
-          bool isNull = false;
-          getString(*this, isNull, delim);
+          skipField(delim);
           continue;
         }
         // else ->
@@ -643,15 +655,6 @@ bool TextRowReader::isEOR(DelimType delim) {
   return (delim != DelimTypeNone && delim <= (depth_ + DelimTypeEOR));
 }
 
-bool TextRowReader::isOuterEOR(DelimType delim) {
-  // Return true if delim is the EOR for the enclosing object.
-  // For example, when parsing ARRAY elements, which leave delim
-  // set to the EOR for their depth on return, isOuterEOR will
-  // return true if we have reached the ARRAY EOR delimiter at
-  // the end of the latest element.
-  return (delim != DelimTypeNone && delim < (depth_ + DelimTypeEOR));
-}
-
 bool TextRowReader::isEOEorEOR(DelimType delim) {
   return (!isNone(delim) && delim <= (depth_ + DelimTypeEOE));
 }
@@ -662,6 +665,66 @@ void TextRowReader::setNone(DelimType& delim) {
 
 bool TextRowReader::isNone(DelimType delim) {
   return (delim == DelimTypeNone);
+}
+
+bool TextRowReader::refillChunk() {
+  if (contents_->compression != CompressionKind::CompressionKind_NONE &&
+      preLoadedUnreadData_.empty()) {
+    int length = 0;
+    const void* buffer = nullptr;
+    atPhysicalEOF_ =
+        !contents_->decompressedInputStream->Next(&buffer, &length);
+    if (!atPhysicalEOF_) {
+      preLoadedUnreadData_ =
+          std::string_view(reinterpret_cast<const char*>(buffer), length);
+    }
+  }
+
+  if (contents_->compression != CompressionKind::CompressionKind_NONE) {
+    unreadData_ = preLoadedUnreadData_;
+    preLoadedUnreadData_ = {};
+    return !unreadData_.empty();
+  }
+
+  int length = 0;
+  const void* buffer = nullptr;
+  if (contents_->inputStream->Next(&buffer, &length) && length > 0) {
+    VELOX_CHECK_NOT_NULL(buffer);
+    unreadData_ =
+        std::string_view(reinterpret_cast<const char*>(buffer), length);
+    return true;
+  }
+
+  return false;
+}
+
+std::string_view TextRowReader::finishString(bool& isNull, bool wasEscaped) {
+  if (wasEscaped) {
+    uint64_t j = 0;
+    for (uint64_t i = 0; i < ownedString_.size(); i++) {
+      if (static_cast<uint8_t>(ownedString_[i]) == escapeChar_ &&
+          i < ownedString_.size() - 1) {
+        i++;
+        if (ownedString_[i] == 'r') {
+          ownedString_[j++] = '\r';
+        } else if (ownedString_[i] == 'n') {
+          ownedString_[j++] = '\n';
+        } else {
+          ownedString_[j++] = ownedString_[i];
+        }
+      } else {
+        ownedString_[j++] = ownedString_[i];
+      }
+    }
+    ownedString_.resize(j);
+  }
+
+  auto result = ownedStringView();
+  if (result == contents_->serDeOptions.nullString) {
+    isNull = true;
+    return {};
+  }
+  return result;
 }
 
 std::string_view
@@ -675,68 +738,261 @@ TextRowReader::getString(TextRowReader& th, bool& isNull, DelimType& delim) {
     return {};
   }
 
-  bool wasEscaped = false;
   th.ownedString_.clear();
+  const auto& specialChars = th.isSpecialCharByDepth_[th.depth_];
 
-  // Processing has to be done character by characater instad of chunk by chunk.
-  // This is to avoid edge case handling if escape character(s) are cut off at
-  // the end of the chunk.
-  while (true) {
-    auto v = th.getByteOptimized(delim);
-    if (!th.isNone(delim)) {
-      break;
-    }
-
-    if (th.contents_->serDeOptions.isEscaped &&
-        v == th.contents_->serDeOptions.escapeChar) {
-      wasEscaped = true;
-      th.ownedString_.push_back(static_cast<char>(v));
-      v = th.getByteUncheckedOptimized(delim);
-      if (!th.isNone(delim)) {
-        break;
+  // Helper: consume a trailing \n after \r (handles chunk boundary).
+  auto consumeLF = [&th] {
+    if (!th.unreadData_.empty()) {
+      if (th.unreadData_.front() == '\n') {
+        th.unreadData_.remove_prefix(1);
+        th.pos_++;
       }
+    } else if (th.refillChunk() && th.unreadData_.front() == '\n') {
+      th.unreadData_.remove_prefix(1);
+      th.pos_++;
     }
+  };
+
+  // Helper: classify terminator and set delim.
+  auto handleTerminator = [&](uint8_t v) {
+    if (v == '\r') {
+      consumeLF();
+      v = '\n';
+    }
+    delim = th.getDelimType(v);
+  };
+
+  // Helper: consume escape char + the following byte into ownedString_.
+  // Returns false on EOF after escape.
+  auto consumeEscape = [&th, &delim](uint8_t v) -> bool {
     th.ownedString_.push_back(static_cast<char>(v));
-  }
-
-  if (th.ownedStringView() == th.contents_->serDeOptions.nullString) {
-    isNull = true;
-    return {};
-  }
-
-  if (wasEscaped) {
-    // We need to copy the data byte by byte only if there is at least one
-    // escaped byte.
-    uint64_t j = 0;
-    for (uint64_t i = 0; i < th.ownedString_.size(); i++) {
-      if (th.ownedString_[i] == th.contents_->serDeOptions.escapeChar &&
-          i < th.ownedString_.size() - 1) {
-        // Check if it's '\r' or '\n'.
-        i++;
-        if (th.ownedString_[i] == 'r') {
-          th.ownedString_[j++] = '\r';
-        } else if (th.ownedString_[i] == 'n') {
-          th.ownedString_[j++] = '\n';
-        } else {
-          // Keep the next byte.
-          th.ownedString_[j++] = th.ownedString_[i];
-        }
-      } else {
-        th.ownedString_[j++] = th.ownedString_[i];
+    th.pos_++;
+    th.unreadData_.remove_prefix(1);
+    if (th.unreadData_.empty()) {
+      if (!th.refillChunk()) {
+        th.setEOF();
+        delim = DelimTypeEOR;
+        return false;
       }
     }
-    th.ownedString_.resize(j);
-  }
+    th.ownedString_.push_back(th.unreadData_.front());
+    th.unreadData_.remove_prefix(1);
+    th.pos_++;
+    return true;
+  };
 
-  return th.ownedStringView();
+  // Ensure we have data for the first byte of the field.
+  if (th.unreadData_.empty()) {
+    if (!th.refillChunk()) {
+      th.setEOF();
+      delim = DelimTypeEOR;
+      return th.ownedStringView(); // empty
+    }
+  }
+  th.atSOL_ = false;
+
+  // Result of scanning a chunk.
+  enum class ScanResult : uint8_t { kTerminator, kEscape, kChunkEnd };
+
+  // Scans unreadData_ for the next special character.
+  // - kTerminator: field bytes are [chunkStart, chunkStart + idx). Advances
+  //   unreadData_/pos_ past field + terminator, sets delim via
+  //   handleTerminator.
+  // - kEscape: appends bytes before escape to ownedString_, consumes the
+  //   escape sequence (2 bytes) into ownedString_.
+  // - kChunkEnd: appends entire chunk to ownedString_, clears unreadData_.
+  // `idx` is set to the field length on kTerminator, undefined otherwise.
+  // Templatized on HasEscape to eliminate the branch in the hot inner loop.
+  auto scanChunk = [&]<bool HasEscape>(size_t& idx) -> ScanResult {
+    const char* data = th.unreadData_.data();
+    const size_t len = th.unreadData_.size();
+
+    for (size_t i = 0; i < len; ++i) {
+      const auto v = static_cast<uint8_t>(data[i]);
+      if (!specialChars[v]) {
+        continue;
+      }
+
+      if constexpr (HasEscape) {
+        if (v == th.escapeChar_) {
+          th.ownedString_.insert(th.ownedString_.end(), data, data + i);
+          th.pos_ += i;
+          th.unreadData_.remove_prefix(i);
+          consumeEscape(v);
+          return ScanResult::kEscape;
+        }
+      }
+
+      // Terminator.
+      idx = i;
+      th.pos_ += i + 1;
+      th.unreadData_.remove_prefix(i + 1);
+      handleTerminator(v);
+      return ScanResult::kTerminator;
+    }
+
+    // Chunk exhausted.
+    th.ownedString_.insert(th.ownedString_.end(), data, data + len);
+    th.pos_ += len;
+    th.unreadData_ = {};
+    return ScanResult::kChunkEnd;
+  };
+
+  // Dispatch once on hasEscape_, then run the entire scan loop with the
+  // chosen template specialization — no per-byte branch cost.
+  auto doGetString = [&]<bool HasEscape>() -> std::string_view {
+    // ---- Fast path: field fits in one chunk, no escapes ----
+    const char* data = th.unreadData_.data();
+    size_t idx = 0;
+    auto result = scanChunk.template operator()<HasEscape>(idx);
+
+    if (result == ScanResult::kTerminator) {
+      // Zero-copy: field entirely within one chunk.
+      auto sv = std::string_view(data, idx);
+      if (sv == th.contents_->serDeOptions.nullString) {
+        isNull = true;
+        return {};
+      }
+      return sv;
+    }
+
+    if (result == ScanResult::kEscape && th.atEOF_) {
+      return th.finishString(isNull, true);
+    }
+
+    // ---- Slow path: field spans chunks or has escapes ----
+    bool wasEscaped = (result == ScanResult::kEscape);
+    for (;;) {
+      if (th.unreadData_.empty()) {
+        if (!th.refillChunk()) {
+          th.setEOF();
+          delim = DelimTypeEOR;
+          break;
+        }
+      }
+
+      const char* chunkData = th.unreadData_.data();
+      result = scanChunk.template operator()<HasEscape>(idx);
+
+      if (result == ScanResult::kTerminator) {
+        th.ownedString_.insert(
+            th.ownedString_.end(), chunkData, chunkData + idx);
+        return th.finishString(isNull, wasEscaped);
+      }
+
+      if (result == ScanResult::kEscape) {
+        wasEscaped = true;
+        if (th.atEOF_) {
+          return th.finishString(isNull, wasEscaped);
+        }
+      }
+    }
+
+    return th.finishString(isNull, wasEscaped);
+  };
+
+  if (th.hasEscape_) {
+    return doGetString.template operator()<true>();
+  }
+  return doGetString.template operator()<false>();
 }
 
-template <typename T, typename Filter>
+void TextRowReader::consumeLF() {
+  if (!unreadData_.empty()) {
+    if (unreadData_.front() == '\n') {
+      unreadData_.remove_prefix(1);
+      pos_++;
+    }
+  } else if (refillChunk() && unreadData_.front() == '\n') {
+    unreadData_.remove_prefix(1);
+    pos_++;
+  }
+}
+
+template <bool HasEscape, typename IsTerminator, typename OnTerminator>
+void TextRowReader::scanToTerminator(
+    const IsTerminator& isTerm,
+    const OnTerminator& onTerm) {
+  for (;;) {
+  next_chunk:
+    if (unreadData_.empty()) {
+      if (!refillChunk()) {
+        setEOF();
+        return;
+      }
+    }
+
+    const char* data = unreadData_.data();
+    const size_t len = unreadData_.size();
+
+    for (size_t i = 0; i < len; ++i) {
+      const auto v = static_cast<uint8_t>(data[i]);
+
+      if constexpr (HasEscape) {
+        if (v == escapeChar_) {
+          // Skip escape char + the following byte.
+          pos_ += i + 1;
+          unreadData_.remove_prefix(i + 1);
+          if (unreadData_.empty()) {
+            if (!refillChunk()) {
+              setEOF();
+              return;
+            }
+          }
+          unreadData_.remove_prefix(1);
+          pos_++;
+          goto next_chunk;
+        }
+      }
+
+      if (isTerm(v)) {
+        pos_ += i + 1;
+        unreadData_.remove_prefix(i + 1);
+        if (v == '\r') {
+          consumeLF();
+        }
+        onTerm(v == '\r' ? static_cast<uint8_t>('\n') : v);
+        return;
+      }
+    }
+
+    // Entire chunk consumed with no terminator.
+    pos_ += len;
+    unreadData_ = {};
+  }
+}
+
+void TextRowReader::skipField(DelimType& delim) {
+  if (atEOL_) {
+    delim = DelimTypeEOR;
+    return;
+  }
+
+  if (isEOEorEOR(delim)) {
+    return;
+  }
+
+  atSOL_ = false;
+  const auto& specialChars = isSpecialCharByDepth_[depth_];
+  auto isTerm = [&specialChars](uint8_t v) { return specialChars[v]; };
+  auto onTerm = [this, &delim](uint8_t v) { delim = getDelimType(v); };
+  if (hasEscape_) {
+    scanToTerminator<true>(isTerm, onTerm);
+  } else {
+    scanToTerminator<false>(isTerm, onTerm);
+  }
+  if (atEOF_) {
+    delim = DelimTypeEOR;
+  }
+}
+
+template <typename T, typename Filter, typename Converter>
 bool TextRowReader::setValueFromString(
     std::string_view str,
     BaseVector* data,
     vector_size_t insertionRow,
-    std::function<std::optional<T>(std::string_view)> convert,
+    const Converter& convert,
     const velox::common::Filter* filter) {
   if (atEOF_ && atSOL_) {
     return true;
@@ -771,19 +1027,6 @@ bool TextRowReader::setValueFromString(
   return true;
 }
 
-uint8_t TextRowReader::getByteOptimized(DelimType& delim) {
-  setNone(delim);
-  auto v = getByteUncheckedOptimized(delim);
-  if (isNone(delim)) {
-    if (v == '\r') {
-      v = getByteUncheckedOptimized<true>(
-          delim); // always returns '\n' in this case
-    }
-    delim = getDelimType(v);
-  }
-  return v;
-}
-
 DelimType TextRowReader::getDelimType(uint8_t v) {
   DelimType delim = DelimTypeNone;
 
@@ -796,14 +1039,14 @@ DelimType TextRowReader::getDelimType(uint8_t v) {
       atEOF_ = true;
       delim = DelimTypeEOR;
     }
-  } else if (v == contents_->serDeOptions.separators.at(depth_)) {
+  } else if (v == separators_[depth_]) {
     setEOE(delim);
   } else {
     setNone(delim);
     uint64_t i = depth_;
     while (i > 0) {
       i--;
-      if (v == contents_->serDeOptions.separators.at(i)) {
+      if (v == separators_[i]) {
         delim = i + DelimTypeEOR; // level-based EOR
         break;
       }
@@ -812,142 +1055,24 @@ DelimType TextRowReader::getDelimType(uint8_t v) {
   return delim;
 }
 
-template <bool skipLF>
-char TextRowReader::getByteUncheckedOptimized(DelimType& delim) {
-  if (atEOL_) {
-    if (!skipLF) {
-      delim = DelimTypeEOR; // top level EOR
-    }
-    return '\n';
-  }
-
-  try {
-    char v;
-    if (contents_->compression != CompressionKind::CompressionKind_NONE &&
-        preLoadedUnreadData_.empty()) {
-      int length = 0;
-      const void* buffer = nullptr;
-      atPhysicalEOF_ =
-          !contents_->decompressedInputStream->Next(&buffer, &length);
-      if (!atPhysicalEOF_) {
-        preLoadedUnreadData_ =
-            std::string_view(reinterpret_cast<const char*>(buffer), length);
-      }
-    }
-
-    if (unreadData_.empty() || unreadIdx_ >= unreadData_.size()) {
-      bool updated = false;
-      if (contents_->compression != CompressionKind::CompressionKind_NONE) {
-        unreadData_.assign(
-            preLoadedUnreadData_.data(), preLoadedUnreadData_.size());
-        preLoadedUnreadData_ = {};
-        updated = !unreadData_.empty();
-      } else {
-        int length = 0;
-        const void* buffer = nullptr;
-        if (contents_->inputStream->Next(&buffer, &length) && length > 0) {
-          VELOX_CHECK_NOT_NULL(buffer);
-          unreadData_.assign(reinterpret_cast<const char*>(buffer), length);
-          updated = true;
-        }
-      }
-
-      if (!updated) {
-        setEOF();
-        delim = DelimTypeEOR;
-        return '\0';
-      }
-      unreadIdx_ = 0;
-    }
-
-    v = unreadData_[unreadIdx_++];
-    pos_++;
-
-    // only when previous char == '\r'
-    if (skipLF) {
-      if (v != '\n') {
-        pos_--;
-        return '\n';
-      }
-    } else {
-      atSOL_ = false;
-    }
-    return v;
-  } catch (EOFError&) {
-  } catch (std::runtime_error& e) {
-    if (std::string(e.what()).find("Short read of") != 0 && !skipLF) {
-      throw;
-    }
-  }
-  if (!skipLF) {
-    setEOF();
-    delim = DelimTypeEOR;
-  }
-  return '\n';
-}
-
-bool TextRowReader::getEOR(DelimType& delim, bool& isNull) {
-  if (isEOR(delim)) {
-    isNull = true;
-    return true;
-  }
-  if (atEOL_) {
-    delim = DelimTypeEOR; // top-level EOR
-    isNull = true;
-    return true;
-  }
-  bool wasAtSOL = atSOL_;
-  setNone(delim);
-  ownedString_.clear();
-  const auto& ns = contents_->serDeOptions.nullString;
-  uint8_t v = 0;
-  while (true) {
-    v = getByteUncheckedOptimized(delim);
-    if (isNone(delim)) {
-      if (v == '\r') {
-        // always returns '\n' in this case
-        v = getByteUncheckedOptimized<true>(delim);
-      }
-      delim = getDelimType(v);
-    }
-
-    if (isEOR(delim) || atEOL_) {
-      if (ownedStringView() == ns) {
-        isNull = true;
-      } else if (!ownedString_.empty()) {
-        break;
-      }
-      setEOR(delim);
-      return true;
-    }
-    if (ownedString_.size() >= ns.size() ||
-        static_cast<char>(v) != ns[ownedString_.size()]) {
-      break;
-    }
-    ownedString_.push_back(static_cast<char>(v));
-  }
-
-  unreadData_.insert(0, 1, static_cast<char>(v));
-  pos_--;
-  if (!ownedString_.empty()) {
-    unreadData_.insert(0, ownedStringView());
-    pos_ -= ownedString_.size();
-  }
-  atEOL_ = false;
-  atSOL_ = wasAtSOL;
-  setNone(delim);
-  return false;
-}
-
 bool TextRowReader::skipLine() {
-  DelimType delim = DelimTypeNone;
-  while (!atEOL_) {
-    (void)getByteOptimized(delim);
+  if (atEOL_) {
+    return atEOF_;
   }
-  /// TODO: Logically should be >=, kept as it is to align with presto reader
-  if (pos_ > limit_) {
-    setEOF();
-    delim = DelimTypeEOR;
+
+  auto isTerm = [](uint8_t v) { return v == '\n' || v == '\r'; };
+  auto onTerm = [this](uint8_t /*v*/) {
+    atEOL_ = true;
+    /// TODO: Logically should be >=, kept as it is to align with presto
+    /// reader
+    if (pos_ > limit_) {
+      setEOF();
+    }
+  };
+  if (hasEscape_) {
+    scanToTerminator<true>(isTerm, onTerm);
+  } else {
+    scanToTerminator<false>(isTerm, onTerm);
   }
   return atEOF_;
 }
@@ -1534,51 +1659,7 @@ bool TextRowReader::readArray(
     vector_size_t insertionRow,
     DelimType& delim,
     const velox::common::Filter* filter) {
-  bool isNull = false;
-  const auto& ct = type.childAt(0);
-  const auto& arrayVector = data ? data->asUnchecked<ArrayVector>() : nullptr;
-
-  incrementDepth();
-  (void)getEOR(delim, isNull);
-
-  if (arrayVector != nullptr) {
-    auto rawSizes = arrayVector->sizes()->asMutable<vector_size_t>();
-    auto rawOffsets = arrayVector->offsets()->asMutable<vector_size_t>();
-
-    rawOffsets[insertionRow] = insertionRow > 0
-        ? rawOffsets[insertionRow - 1] + rawSizes[insertionRow - 1]
-        : 0;
-    const int startElementIdx = rawOffsets[insertionRow];
-
-    vector_size_t elementCount = 0;
-    if (isNull) {
-      arrayVector->setNull(insertionRow, isNull);
-      rawSizes[insertionRow] = 0;
-    } else {
-      while (!isOuterEOR(delim)) {
-        setNone(delim);
-        auto elementsVector = arrayVector->elements().get();
-        resizeVector(elementsVector, startElementIdx + elementCount);
-
-        readElement(ct, elementsVector, startElementIdx + elementCount, delim);
-
-        rawSizes[insertionRow] = ++elementCount;
-
-        if (atEOF_ && atSOL_) {
-          decrementDepth(delim);
-          return true;
-        }
-      }
-    }
-
-  } else {
-    while (!isOuterEOR(delim)) {
-      setNone(delim);
-      readElement(ct, nullptr, 0, delim);
-    }
-  }
-  decrementDepth(delim);
-  return true;
+  VELOX_NYI("reading Array is not implemented");
 }
 
 template <typename Filter>
@@ -1588,69 +1669,7 @@ bool TextRowReader::readMap(
     vector_size_t insertionRow,
     DelimType& delim,
     const velox::common::Filter* filter) {
-  bool isNull = false;
-  const auto& mapt = type.asMap();
-  const auto& key = mapt.keyType();
-  const auto& value = mapt.valueType();
-  const auto& mapVector = data ? data->asUnchecked<MapVector>() : nullptr;
-  incrementDepth();
-  (void)getEOR(delim, isNull);
-
-  if (mapVector != nullptr) {
-    auto rawOffsets = mapVector->offsets()->asMutable<vector_size_t>();
-    auto rawSizes = mapVector->sizes()->asMutable<vector_size_t>();
-
-    rawOffsets[insertionRow] = insertionRow > 0
-        ? rawOffsets[insertionRow - 1] + rawSizes[insertionRow - 1]
-        : 0;
-    const int startElementIdx = rawOffsets[insertionRow];
-
-    vector_size_t elementCount = 0;
-    if (isNull) {
-      mapVector->setNull(insertionRow, isNull);
-      rawSizes[insertionRow] = 0;
-    } else {
-      while (!isOuterEOR(delim)) {
-        setNone(delim);
-        incrementDepth();
-
-        auto keysVector = mapVector->mapKeys().get();
-        resizeVector(keysVector, startElementIdx + elementCount);
-
-        readElement(key, keysVector, startElementIdx + elementCount, delim);
-
-        if (atEOF_ && atSOL_) {
-          rawSizes[insertionRow] = elementCount;
-          rawOffsets[insertionRow + 1] = startElementIdx + elementCount;
-          decrementDepth(delim);
-          decrementDepth(delim);
-          return true;
-        }
-        resetEOE(delim);
-
-        auto valsVector = mapVector->mapValues().get();
-        resizeVector(valsVector, startElementIdx + elementCount);
-
-        readElement(value, valsVector, startElementIdx + elementCount, delim);
-
-        rawSizes[insertionRow] = ++elementCount;
-
-        decrementDepth(delim);
-      }
-    }
-
-  } else {
-    while (!isOuterEOR(delim)) {
-      setNone(delim);
-      incrementDepth();
-      readElement(key, nullptr, 0, delim);
-      resetEOE(delim);
-      readElement(value, nullptr, 0, delim);
-      decrementDepth(delim);
-    }
-  }
-  decrementDepth(delim);
-  return true;
+  VELOX_NYI("reading Map is not implemented");
 }
 
 template <typename Filter>
@@ -1660,47 +1679,7 @@ bool TextRowReader::readRow(
     vector_size_t insertionRow,
     DelimType& delim,
     const velox::common::Filter* filter) {
-  bool isNull = false;
-  const auto& childCount = type.size();
-  const auto& rowVector = data ? data->asUnchecked<RowVector>() : nullptr;
-  incrementDepth();
-
-  if (rowVector != nullptr) {
-    if (isNull) {
-      rowVector->setNull(insertionRow, isNull);
-    } else {
-      for (uint64_t j = 0; j < childCount; j++) {
-        if (!isOuterEOR(delim)) {
-          setNone(delim);
-        }
-
-        BaseVector* childVector = nullptr;
-        if (j < type.size()) {
-          childVector = rowVector->childAt(j).get();
-        }
-        resizeVector(childVector, insertionRow);
-        const auto& childType = type.childAt(j);
-        readElement(childType, childVector, insertionRow, delim);
-
-        if (atEOF_ && atSOL_) {
-          decrementDepth(delim);
-          return true;
-        }
-      }
-    }
-  } else {
-    for (uint64_t j = 0; j < childCount; j++) {
-      if (!isOuterEOR(delim)) {
-        setNone(delim);
-      }
-      const auto& childType = type.childAt(j);
-      readElement(childType, nullptr, 0, delim);
-    }
-  }
-
-  decrementDepth(delim);
-  setEOE(delim);
-  return true;
+  VELOX_NYI("reading Row is not implemented");
 }
 
 TextReader::TextReader(

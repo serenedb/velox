@@ -138,8 +138,6 @@ class TextRowReader : public dwio::common::RowReader {
 
   bool isEOR(DelimType delim);
 
-  bool isOuterEOR(DelimType delim);
-
   bool isEOEorEOR(DelimType delim);
 
   void setNone(DelimType& delim);
@@ -148,16 +146,22 @@ class TextRowReader : public dwio::common::RowReader {
 
   DelimType getDelimType(uint8_t v);
 
-  template <bool skipLF = false>
-  char getByteUncheckedOptimized(DelimType& delim);
+  void resetLine();
 
-  uint8_t getByteOptimized(DelimType& delim);
+  bool refillChunk();
 
-  bool getEOR(DelimType& delim, bool& isNull);
+  /// Consumes trailing \n after \r, handling chunk boundaries.
+  void consumeLF();
+
+  /// Bulk-scans chunks, skipping escape sequences, until IsTerminator(byte)
+  /// returns true. On terminator, calls OnTerminator(byte) and returns.
+  /// On EOF, calls setEOF() and returns. Never builds ownedString_.
+  template <bool HasEscape, typename IsTerminator, typename OnTerminator>
+  void scanToTerminator(const IsTerminator& isTerm, const OnTerminator& onTerm);
 
   bool skipLine();
 
-  void resetLine();
+  void skipField(DelimType& delim);
 
   static std::string_view
   getString(TextRowReader& th, bool& isNull, DelimType& delim);
@@ -181,17 +185,19 @@ class TextRowReader : public dwio::common::RowReader {
       DelimType& delim,
       const velox::common::Filter* filter);
 
-  template <typename T, typename Filter>
+  template <typename T, typename Filter, typename Converter>
   bool setValueFromString(
       std::string_view str,
       BaseVector* FOLLY_NULLABLE data,
       vector_size_t insertionRow,
-      std::function<std::optional<T>(std::string_view)> convert,
+      const Converter& convert,
       const velox::common::Filter* filter);
 
   std::string_view ownedStringView() const {
     return std::string_view{ownedString_.data(), ownedString_.size()};
   }
+
+  std::string_view finishString(bool& isNull, bool wasEscaped);
 
   const std::shared_ptr<FileContents> contents_;
   const std::shared_ptr<velox::common::ScanSpec>& scanSpec_;
@@ -204,9 +210,12 @@ class TextRowReader : public dwio::common::RowReader {
   bool atSOL_;
   bool atPhysicalEOF_;
   uint8_t depth_;
-  std::string unreadData_;
+  bool hasEscape_;
+  uint8_t escapeChar_;
+  std::array<uint8_t, 8> separators_;
+  std::array<std::array<bool, 256>, 8> isSpecialCharByDepth_;
+  std::string_view unreadData_;
   std::string_view preLoadedUnreadData_;
-  int unreadIdx_;
   uint64_t limit_; // lowest offset not in the range
   uint64_t fileLength_;
   std::vector<char> ownedString_;
