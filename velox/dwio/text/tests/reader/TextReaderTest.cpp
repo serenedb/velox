@@ -138,7 +138,7 @@ TEST_F(TextReaderTest, basic) {
 
   EXPECT_EQ(*reader->rowType(), *type);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
 
   // Try reading 10 rows each time.
   ASSERT_EQ(rowReader->next(10, result), 10);
@@ -175,9 +175,6 @@ TEST_F(TextReaderTest, basic) {
 }
 
 TEST_F(TextReaderTest, headerAndCustomNullString) {
-  tzset();
-  const auto tzOffsetPST = 28'800;
-  const auto tzOffsetPDT = 25'200;
   auto expected = makeRowVector({
       makeFlatVector<std::string>(
           {"FOO",
@@ -195,33 +192,33 @@ TEST_F(TextReaderTest, headerAndCustomNullString) {
            ""}),
       makeFlatVector<int32_t>({1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}),
       makeNullableFlatVector<double>(
-          {1.123,
+          {std::nullopt,
            2.333,
            -6.1,
            4.2,
-           47.2,
+           std::nullopt,
            79.5,
-           3.1415926,
+           std::nullopt,
            -221.145,
            93.12,
-           -4123.11,
+           std::nullopt,
            950.2,
            43.66,
            std::nullopt}),
       makeNullableFlatVector<Timestamp>({
-          Timestamp{1'695'378'095 + tzOffsetPDT, 148'000'000},
-          Timestamp{1'695'690'351 + tzOffsetPDT, 0},
-          Timestamp{1'695'686'400 + tzOffsetPDT, 0},
-          Timestamp{1'695'083'400 + tzOffsetPDT, 0},
+          Timestamp{1'695'378'095, 148'000'000},
+          Timestamp{1'695'690'351, 0},
+          Timestamp{1'695'686'400, 0},
+          Timestamp{1'695'083'400, 0},
           std::nullopt,
-          Timestamp{1'695'657'091 + tzOffsetPDT, 209'000'000},
-          Timestamp{1'695'690'437 + tzOffsetPDT, 469'123'000},
-          Timestamp{1'696'540'679 + tzOffsetPDT, 976'000'000},
-          Timestamp{1'695'657'171 + tzOffsetPDT, 637'000'000},
-          Timestamp{1'695'693'225 + tzOffsetPDT, 745'123'000},
+          Timestamp{1'695'657'091, 209'000'000},
+          Timestamp{1'695'690'437, 469'123'000},
+          Timestamp{1'696'540'679, 976'000'000},
+          Timestamp{1'695'657'171, 637'000'000},
+          Timestamp{1'695'693'225, 745'123'000},
           std::nullopt,
-          Timestamp{1'695'406'246 + tzOffsetPDT, 0},
-          Timestamp{1'699'392'124 + tzOffsetPST, 736'000'000},
+          Timestamp{1'695'406'246, 0},
+          Timestamp{1'699'392'124, 736'000'000},
       }),
   });
 
@@ -249,7 +246,7 @@ TEST_F(TextReaderTest, headerAndCustomNullString) {
 
   EXPECT_EQ(*reader->rowType(), *type);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
 
   // Try reading 10 rows each time.
   ASSERT_EQ(rowReader->next(10, result), 10);
@@ -424,7 +421,7 @@ TEST_F(TextReaderTest, complexTypesWithCustomDelimiters) {
 
   EXPECT_EQ(*reader->rowType(), *type);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
 
   // Try reading 10 rows each time.
   ASSERT_EQ(rowReader->next(10, result), 10);
@@ -496,7 +493,7 @@ TEST_F(TextReaderTest, projectComplexTypesWithCustomDelimiters) {
           type, std::vector<std::string>({"col_string", "col_map"})));
   auto rowReader = reader->createRowReader(rowOptions);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
 
   ASSERT_EQ(rowReader->next(13, result), 13);
   ASSERT_EQ(
@@ -598,7 +595,7 @@ TEST_F(TextReaderTest, projectPrimitiveTypes) {
           std::vector<std::string>({"col_tiny", "col_int", "col_double"})));
   auto rowReader = reader->createRowReader(rowOptions);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
   ASSERT_EQ(rowReader->next(20, result), 16);
   ASSERT_EQ(
       *result->type(),
@@ -661,7 +658,7 @@ TEST_F(TextReaderTest, projectColumns) {
       std::make_shared<dwio::common::ColumnSelector>(
           type, std::vector<std::string>({"col_float"})));
   auto rowReader = reader->createRowReader(rowOptions);
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
   ASSERT_EQ(rowReader->next(10, result), 10);
   ASSERT_EQ(*result->type(), *ROW({"ds", "col_float"}, {VARCHAR(), DOUBLE()}));
   auto expected = makeRowVector({
@@ -715,7 +712,7 @@ TEST_F(TextReaderTest, projectNone) {
   auto reader = factory->createReader(std::move(input), readerOptions);
   auto rowReader = reader->createRowReader(rowReaderOptions);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
   // We expect to get 16 rows.
   ASSERT_EQ(rowReader->next(16, result), 16);
   ASSERT_EQ(rowReader->next(10, result), 0);
@@ -750,7 +747,7 @@ TEST_F(TextReaderTest, compressedProjectNone) {
   auto reader = factory->createReader(std::move(input), readerOptions);
   auto rowReader = reader->createRowReader(rowReaderOptions);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
   // We expect to get 12 rows.
   ASSERT_EQ(rowReader->next(12, result), 12);
   ASSERT_EQ(rowReader->next(10, result), 0);
@@ -785,7 +782,7 @@ TEST_F(TextReaderTest, compressedFilter) {
   rowOptions.select(
       std::make_shared<dwio::common::ColumnSelector>(type, type->names()));
   auto rowReader = reader->createRowReader(rowOptions);
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
   ASSERT_EQ(rowReader->next(10, result), 10);
   ASSERT_EQ(*result->type(), *ROW({"ds", "col_int"}, {VARCHAR(), INTEGER()}));
   auto expected = makeRowVector({
@@ -833,7 +830,7 @@ TEST_F(TextReaderTest, filter) {
       std::make_shared<dwio::common::ColumnSelector>(type, type->names()));
 
   auto rowReader = reader->createRowReader(rowOptions);
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
 
   ASSERT_EQ(rowReader->next(15, result), 13);
 
@@ -880,7 +877,7 @@ TEST_F(TextReaderTest, shrinkBatch) {
   rowOptions.select(
       std::make_shared<dwio::common::ColumnSelector>(ROW({}, {})));
   auto rowReader = reader->createRowReader(rowOptions);
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
 
   ASSERT_EQ(rowReader->next(6, result), 6);
   ASSERT_EQ(result->size(), 6);
@@ -913,7 +910,7 @@ TEST_F(TextReaderTest, compressedShrinkBatch) {
   rowOptions.select(
       std::make_shared<dwio::common::ColumnSelector>(ROW({}, {})));
   auto rowReader = reader->createRowReader(rowOptions);
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
   ASSERT_EQ(rowReader->next(6, result), 6);
   ASSERT_EQ(result->size(), 6);
   ASSERT_EQ(rowReader->next(4, result), 4);
@@ -942,7 +939,7 @@ TEST_F(TextReaderTest, emptyFile) {
   auto reader = factory->createReader(std::move(input), readerOptions);
   auto rowReader = reader->createRowReader(rowReaderOptions);
   EXPECT_EQ(*reader->rowType(), *type);
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
   // Try reading 10 rows each time.
   ASSERT_EQ(rowReader->next(10, result), 0);
 }
@@ -988,7 +985,7 @@ TEST_F(TextReaderTest, readRanges) {
   const int bytesPerRows = 10;
 
   dwio::common::RowReaderOptions rowReaderOptions;
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
 
   // read from 1st row to 6th row
   rowReaderOptions.range(0, 5 * bytesPerRows);
@@ -1046,20 +1043,20 @@ TEST_F(TextReaderTest, readFloatAsInt) {
            4192}),
       makeFlatVector<int8_t>({0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}),
       makeNullableFlatVector<int32_t>(
-          {1,
-           2,
-           -6,
-           4,
+          {std::nullopt,
            std::nullopt,
-           79,
            std::nullopt,
-           3,
-           93,
-           -221,
            std::nullopt,
-           950,
-           -4123,
-           43,
+           std::nullopt,
+           std::nullopt,
+           std::nullopt,
+           std::nullopt,
+           std::nullopt,
+           std::nullopt,
+           std::nullopt,
+           std::nullopt,
+           std::nullopt,
+           std::nullopt,
            std::nullopt,
            std::nullopt}),
   });
@@ -1088,7 +1085,7 @@ TEST_F(TextReaderTest, readFloatAsInt) {
 
   EXPECT_EQ(*reader->rowType(), *type);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
 
   ASSERT_EQ(rowReader->next(10, result), 10);
   for (int i = 0; i < 10; ++i) {
@@ -1101,9 +1098,6 @@ TEST_F(TextReaderTest, readFloatAsInt) {
 }
 
 TEST_F(TextReaderTest, simpleTypes) {
-  const auto tzOffsetPST = 28'800;
-  const auto tzOffsetPDT = 25'200;
-
   auto expected = makeRowVector({
       makeFlatVector<std::string>(
           {"FOO",
@@ -1148,19 +1142,19 @@ TEST_F(TextReaderTest, simpleTypes) {
            false,
            true}),
       makeNullableFlatVector<Timestamp>(
-          {Timestamp{1'695'378'095 + tzOffsetPDT, 148'000'000},
-           Timestamp{1'695'690'351 + tzOffsetPDT, 0},
-           Timestamp{1'695'686'400 + tzOffsetPDT, 0},
-           Timestamp{1'695'083'400 + tzOffsetPDT, 0},
+          {Timestamp{1'695'378'095, 148'000'000},
+           Timestamp{1'695'690'351, 0},
+           Timestamp{1'695'686'400, 0},
+           Timestamp{1'695'083'400, 0},
            std::nullopt,
-           Timestamp{1'695'657'091 + tzOffsetPDT, 209'000'000},
-           Timestamp{1'695'690'437 + tzOffsetPDT, 469'123'000},
-           Timestamp{1'696'540'679 + tzOffsetPDT, 976'000'000},
-           Timestamp{1'695'657'171 + tzOffsetPDT, 637'000'000},
-           Timestamp{1'695'693'225 + tzOffsetPDT, 745'123'000},
+           Timestamp{1'695'657'091, 209'000'000},
+           Timestamp{1'695'690'437, 469'123'000},
+           Timestamp{1'696'540'679, 976'000'000},
+           Timestamp{1'695'657'171, 637'000'000},
+           Timestamp{1'695'693'225, 745'123'000},
            std::nullopt,
-           Timestamp{1'695'406'246 + tzOffsetPDT, 0},
-           Timestamp{1'699'392'124 + tzOffsetPST, 736'000'000}}),
+           Timestamp{1'695'406'246, 0},
+           Timestamp{1'699'392'124, 736'000'000}}),
   });
 
   auto type = ROW(
@@ -1187,7 +1181,7 @@ TEST_F(TextReaderTest, simpleTypes) {
 
   EXPECT_EQ(*reader->rowType(), *type);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
 
   ASSERT_EQ(rowReader->next(11, result), 11);
   for (int i = 0; i < 11; ++i) {
@@ -1249,7 +1243,7 @@ TEST_F(TextReaderTest, primitiveLimitsStressTest) {
 
   EXPECT_EQ(*reader->rowType(), *type);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
 
   // Test reading all 200 rows at once
   ASSERT_EQ(rowReader->next(250, result), 200);
@@ -1406,7 +1400,7 @@ TEST_F(TextReaderTest, DISABLED_nestedComplexTypesWithCustomDelimiters) {
 
   EXPECT_EQ(*reader->rowType(), *type);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
 
   // Read all 3 rows
   ASSERT_EQ(rowReader->next(10, result), 3);
@@ -1477,7 +1471,7 @@ TEST_F(TextReaderTest, nestedArraysWithCustomDelimiters) {
 
   EXPECT_EQ(*reader->rowType(), *type);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
 
   // Read all 3 rows
   ASSERT_EQ(rowReader->next(10, result), 3);
@@ -1568,7 +1562,7 @@ TEST_F(TextReaderTest, tripleNestedArraysWithCustomDelimiters) {
 
   EXPECT_EQ(*reader->rowType(), *type);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
 
   // Read all 3 rows
   ASSERT_EQ(rowReader->next(10, result), 3);
@@ -1602,7 +1596,7 @@ TEST_F(TextReaderTest, varbinarySuccessfulDecoding) {
 
   EXPECT_EQ(*reader->rowType(), *type);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
   ASSERT_EQ(rowReader->next(10, result), 2);
 
   auto rowVector = std::static_pointer_cast<RowVector>(result);
@@ -1637,7 +1631,7 @@ TEST_F(TextReaderTest, varbinaryUnsuccessfulDecoding) {
 
   EXPECT_EQ(*reader->rowType(), *type);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
   ASSERT_EQ(rowReader->next(10, result), 2);
 
   auto rowVector = std::static_pointer_cast<RowVector>(result);
@@ -1727,7 +1721,7 @@ TEST_F(TextReaderTest, logicalTypes) {
   auto rowReader = reader->createRowReader(rowReaderOptions);
   EXPECT_EQ(*reader->rowType(), *type);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
   ASSERT_EQ(rowReader->next(10, result), 10);
   for (int i = 0; i < 10; ++i) {
     EXPECT_TRUE(result->equalValueAt(expected.get(), i, i));
@@ -1787,7 +1781,7 @@ TEST_F(TextReaderTest, nestedRows) {
 
   EXPECT_EQ(*reader->rowType(), *type);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
   ASSERT_EQ(rowReader->next(10, result), 5);
 
   for (int i = 0; i < 5; ++i) {
@@ -1864,7 +1858,7 @@ TEST_P(TextReaderDecompressionTest, tests) {
 
   EXPECT_EQ(*reader->rowType(), *type);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(type, 0, pool());
 
   // Try reading 10 rows each time.
   ASSERT_EQ(rowReader->next(10, result), 10);
