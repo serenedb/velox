@@ -159,9 +159,9 @@ TEST_F(TextWriterTest, write) {
   EXPECT_EQ(result[2][6], "3.100000");
 
   // timestamp
-  EXPECT_EQ(result[0][7], "1969-12-31 16:00:00.000");
-  EXPECT_EQ(result[1][7], "1969-12-31 16:00:01.001");
-  EXPECT_EQ(result[2][7], "1969-12-31 16:00:02.002");
+  EXPECT_EQ(result[0][7], "1970-01-01 00:00:00.000");
+  EXPECT_EQ(result[1][7], "1970-01-01 00:00:01.001");
+  EXPECT_EQ(result[2][7], "1970-01-01 00:00:02.002");
 
   // varchar
   EXPECT_EQ(result[0][8], "hello");
@@ -236,7 +236,7 @@ TEST_F(TextWriterTest, verifyWriteWithTextReader) {
 
   EXPECT_EQ(*reader->rowType(), *schema);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(schema, 0, pool());
 
   ASSERT_EQ(rowReader->next(3, result), 3);
   for (int i = 0; i < 3; ++i) {
@@ -545,7 +545,7 @@ TEST_F(TextWriterTest, verifyMapAndArrayComplexTypesWithTextReader) {
 
   EXPECT_EQ(*reader->rowType(), *schema);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(schema, 0, pool());
   ASSERT_EQ(rowReader->next(13, result), 13);
   for (int i = 0; i < 13; ++i) {
     EXPECT_TRUE(result->equalValueAt(expected.get(), i, i));
@@ -698,7 +698,7 @@ TEST_F(TextWriterTest, verifyArrayTypesWithTextReader) {
 
   EXPECT_EQ(*reader->rowType(), *schema);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(schema, 0, pool());
 
   ASSERT_EQ(rowReader->next(5, result), 5);
   for (int i = 0; i < 5; ++i) {
@@ -936,7 +936,7 @@ TEST_F(TextWriterTest, verifyMapTypesWithTextReader) {
 
   EXPECT_EQ(*reader->rowType(), *schema);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(schema, 0, pool());
 
   ASSERT_EQ(rowReader->next(5, result), 5);
   for (int i = 0; i < 5; ++i) {
@@ -1091,7 +1091,7 @@ TEST_F(TextWriterTest, verifyNestedRowTypesWithTextReader) {
 
   EXPECT_EQ(*reader->rowType(), *schema);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(schema, 0, pool());
 
   ASSERT_EQ(rowReader->next(5, result), 5);
   for (int i = 0; i < 5; ++i) {
@@ -1478,7 +1478,7 @@ TEST_F(
 
   EXPECT_EQ(*reader->rowType(), *schema);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(schema, 0, pool());
   ASSERT_EQ(rowReader->next(3, result), 3);
   for (int i = 0; i < 3; ++i) {
     EXPECT_TRUE(result->equalValueAt(data.get(), i, i));
@@ -1608,7 +1608,7 @@ TEST_F(TextWriterTest, verifySimpleEscapeCharTestWithTextReader) {
 
   EXPECT_EQ(*reader->rowType(), *schema);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(schema, 0, pool());
 
   ASSERT_EQ(rowReader->next(5, result), 3);
   for (int i = 0; i < 3; ++i) {
@@ -1740,7 +1740,7 @@ TEST_F(TextWriterTest, verifyCustomEscapeCharTestWithTextReader) {
 
   EXPECT_EQ(*reader->rowType(), *schema);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(schema, 0, pool());
 
   ASSERT_EQ(rowReader->next(3, result), 3);
   for (int i = 0; i < 3; ++i) {
@@ -1862,7 +1862,7 @@ TEST_F(TextWriterTest, verifyHeaderTestWithTextReader) {
   auto rowReader = reader->createRowReader(rowReaderOptions);
   EXPECT_EQ(*reader->rowType(), *schema);
 
-  VectorPtr result;
+  VectorPtr result = BaseVector::create(schema, 0, pool());
 
   ASSERT_EQ(rowReader->next(3, result), 3);
   for (int i = 0; i < 3; ++i) {
