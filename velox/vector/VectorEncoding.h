@@ -27,6 +27,7 @@ namespace VectorEncoding {
 
 /// Provides an enumeration of vector encoding types.
 enum class Simple {
+  RANGE,
   BIASED,
   CONSTANT,
   DICTIONARY,
@@ -44,6 +45,8 @@ inline std::ostream& operator<<(
     std::ostream& out,
     const VectorEncoding::Simple& type) {
   switch (type) {
+    case VectorEncoding::Simple::RANGE:
+      return out << "RANGE";
     case VectorEncoding::Simple::BIASED:
       return out << "BIASED";
     case VectorEncoding::Simple::CONSTANT:

@@ -80,6 +80,7 @@ VectorPtr DecodedVector::decodeImpl(
   const auto encoding = vector->encoding();
   switch (encoding) {
     case VectorEncoding::Simple::FLAT:
+    case VectorEncoding::Simple::RANGE:
     case VectorEncoding::Simple::BIASED:
     case VectorEncoding::Simple::ROW:
     case VectorEncoding::Simple::ARRAY:
@@ -232,6 +233,7 @@ void DecodedVector::combineWrappers(
       case VectorEncoding::Simple::LAZY:
       case VectorEncoding::Simple::CONSTANT:
       case VectorEncoding::Simple::FLAT:
+      case VectorEncoding::Simple::RANGE:
       case VectorEncoding::Simple::BIASED:
       case VectorEncoding::Simple::ROW:
       case VectorEncoding::Simple::ARRAY:

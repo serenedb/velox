@@ -233,6 +233,7 @@ void FlatVector<StringView>::acquireSharedStringBuffersRecursive(
     case VectorEncoding::Simple::LAZY:
     case VectorEncoding::Simple::DICTIONARY:
     case VectorEncoding::Simple::SEQUENCE:
+    case VectorEncoding::Simple::RANGE:
     case VectorEncoding::Simple::BIASED:
     case VectorEncoding::Simple::FUNCTION:
       VELOX_UNREACHABLE(
