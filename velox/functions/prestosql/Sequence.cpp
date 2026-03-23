@@ -137,7 +137,7 @@ class SequenceFunction : public exec::VectorFunction {
       numElements += rawSizes[row];
     });
 
-    auto elements =
+    VectorPtr elements =
         BaseVector::create(outputType->childAt(0), numElements, pool);
     auto rawElements = elements->asFlatVector<T>()->mutableRawValues();
 
