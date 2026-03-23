@@ -70,6 +70,10 @@ class ParquetRowReader : public dwio::common::RowReader {
   // or the buffered data has been evicted.
   bool isRowGroupBuffered(int32_t rowGroupIndex) const;
 
+  // Positions the reader at the start of the given row group (physical index
+  // in the file). The row group must be in the current read set.
+  void seekToRowGroup(uint32_t rowGroupIndex);
+
  private:
   // Compares row group  metadata to filters in ScanSpec in options of
   // ReaderBase and determines the set of row groups to scan.
