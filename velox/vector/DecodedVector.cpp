@@ -18,6 +18,7 @@
 #include "velox/common/base/BitUtil.h"
 #include "velox/vector/BaseVector.h"
 #include "velox/vector/LazyVector.h"
+#include "velox/vector/RangeVector.h"
 
 namespace facebook::velox {
 
@@ -176,6 +177,7 @@ void DecodedVector::reset(vector_size_t size) {
   isConstantMapping_ = false;
   isIdentityMapping_ = false;
   constantIndex_ = 0;
+  materializedValues_.reset();
 }
 
 void DecodedVector::copyNulls(vector_size_t size) {
@@ -375,6 +377,39 @@ void DecodedVector::setBaseData(
     case VectorEncoding::Simple::MAP:
       setFlatNulls(*vector, rows);
       break;
+    case VectorEncoding::Simple::RANGE: {
+      // RangeVector has no backing values buffer — materialize into a flat
+      // buffer so that data() works for downstream consumers.
+      auto length = vector->size();
+      switch (vector->typeKind()) {
+        case TypeKind::BIGINT: {
+          auto* src = vector->template asUnchecked<RangeVector<int64_t>>();
+          materializedValues_ =
+              AlignedBuffer::allocate<int64_t>(length, vector->pool());
+          auto* dst = materializedValues_->asMutable<int64_t>();
+          for (vector_size_t i = 0; i < length; ++i) {
+            dst[i] = src->valueAtFast(i);
+          }
+          break;
+        }
+        case TypeKind::INTEGER: {
+          auto* src = vector->template asUnchecked<RangeVector<int32_t>>();
+          materializedValues_ =
+              AlignedBuffer::allocate<int32_t>(length, vector->pool());
+          auto* dst = materializedValues_->asMutable<int32_t>();
+          for (vector_size_t i = 0; i < length; ++i) {
+            dst[i] = src->valueAtFast(i);
+          }
+          break;
+        }
+        default:
+          VELOX_UNREACHABLE(
+              "Unsupported RangeVector type: {}",
+              vector->type()->toString());
+      }
+      data_ = materializedValues_->template as<void>();
+      break;
+    }
     case VectorEncoding::Simple::CONSTANT:
       setBaseDataForConstant(vector, rows, sharedBase);
       break;

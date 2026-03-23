@@ -443,6 +443,10 @@ class DecodedVector {
   // dictionary and base values.
   std::vector<uint64_t> copiedNulls_;
 
+  // Holds a materialized FlatVector when decoding a RangeVector,
+  // since RangeVector has no backing values buffer.
+  BufferPtr materializedValues_;
+
   // Used as 'nulls_' for a null constant vector.
   static uint64_t constantNullMask_;
 };

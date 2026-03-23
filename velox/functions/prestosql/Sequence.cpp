@@ -18,7 +18,6 @@
 #include "velox/expression/DecodedArgs.h"
 #include "velox/expression/VectorFunction.h"
 #include "velox/functions/prestosql/DateTimeImpl.h"
-#include "velox/vector/RangeVector.h"
 #include "velox/vector/ConstantVector.h"
 
 namespace facebook::velox::functions {
@@ -138,64 +137,27 @@ class SequenceFunction : public exec::VectorFunction {
       numElements += rawSizes[row];
     });
 
-    VectorPtr elements;
+    auto elements =
+        BaseVector::create(outputType->childAt(0), numElements, pool);
+    auto rawElements = elements->asFlatVector<T>()->mutableRawValues();
 
-    // For pure integer sequences with a single row, use RangeVector
-    // which stores only (start, step) instead of materializing all values.
-    bool useArithmetic = false;
-    if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, int32_t>) {
-      if (!isIntervalYearMonth && rows.countSelected() == 1 &&
-          numElements > 0) {
-        useArithmetic = true;
+    vector_size_t elementsOffset = 0;
+    context.applyToSelectedNoThrow(rows, [&](auto row) {
+      const auto sequenceCount = rawSizes[row];
+      if (sequenceCount) {
+        rawOffsets[row] = elementsOffset;
+        writeToElements(
+            rawElements + elementsOffset,
+            isDate,
+            isIntervalYearMonth,
+            sequenceCount,
+            startVector,
+            stopVector,
+            stepVector,
+            row);
+        elementsOffset += rawSizes[row];
       }
-    }
-
-    if (useArithmetic) {
-      if constexpr (std::is_same_v<T, int64_t> || std::is_same_v<T, int32_t>) {
-        T arithmeticStart{};
-        T arithmeticStep{};
-        context.applyToSelectedNoThrow(rows, [&](auto row) {
-          rawOffsets[row] = 0;
-          arithmeticStart = startVector->valueAt<T>(row);
-          auto stop = stopVector->valueAt<T>(row);
-          arithmeticStep = static_cast<T>(getStep(
-              toInt64(arithmeticStart),
-              toInt64(stop),
-              stepVector,
-              row,
-              isDate,
-              isIntervalYearMonth));
-        });
-        elements = std::make_shared<RangeVector<T>>(
-            pool,
-            outputType->childAt(0),
-            numElements,
-            arithmeticStart,
-            arithmeticStep);
-      }
-    } else {
-      elements =
-          BaseVector::create(outputType->childAt(0), numElements, pool);
-      auto rawElements = elements->asFlatVector<T>()->mutableRawValues();
-
-      vector_size_t elementsOffset = 0;
-      context.applyToSelectedNoThrow(rows, [&](auto row) {
-        const auto sequenceCount = rawSizes[row];
-        if (sequenceCount) {
-          rawOffsets[row] = elementsOffset;
-          writeToElements(
-              rawElements + elementsOffset,
-              isDate,
-              isIntervalYearMonth,
-              sequenceCount,
-              startVector,
-              stopVector,
-              stepVector,
-              row);
-          elementsOffset += rawSizes[row];
-        }
-      });
-    }
+    });
     context.moveOrCopyResult(
         std::make_shared<ArrayVector>(
             pool, outputType, nullptr, numRows, offsets, sizes, elements),
