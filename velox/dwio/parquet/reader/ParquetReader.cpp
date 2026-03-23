@@ -127,6 +127,12 @@ class ReaderBase {
   /// the data still exists in the buffered inputs.
   bool isRowGroupBuffered(int32_t rowGroupIndex) const;
 
+  /// Clears the cached input for a row group so it will be re-enqueued
+  /// on the next scheduleRowGroups call.
+  void clearRowGroupInput(uint32_t rowGroupIndex) {
+    inputs_.erase(rowGroupIndex);
+  }
+
  private:
   // Reads and parses file footer.
   void loadFileMetaData();
@@ -1348,6 +1354,18 @@ class ParquetRowReader::Impl {
     return readerBase_->isRowGroupBuffered(rowGroupIndex);
   }
 
+  void seekToRowGroup(uint32_t rowGroupIndex) {
+    auto it =
+        std::find(rowGroupIds_.begin(), rowGroupIds_.end(), rowGroupIndex);
+    VELOX_CHECK(
+        it != rowGroupIds_.end(),
+        "Row group {} not in read set",
+        rowGroupIndex);
+    nextRowGroupIdsIdx_ = static_cast<uint32_t>(it - rowGroupIds_.begin());
+    readerBase_->clearRowGroupInput(rowGroupIndex);
+    advanceToNextRowGroup();
+  }
+
  private:
   bool advanceToNextRowGroup() {
     if (nextRowGroupIdsIdx_ == rowGroupIds_.size()) {
@@ -1430,6 +1448,10 @@ void ParquetRowReader::resetFilterCaches() {
 
 bool ParquetRowReader::isRowGroupBuffered(int32_t rowGroupIndex) const {
   return impl_->isRowGroupBuffered(rowGroupIndex);
+}
+
+void ParquetRowReader::seekToRowGroup(uint32_t rowGroupIndex) {
+  impl_->seekToRowGroup(rowGroupIndex);
 }
 
 std::optional<size_t> ParquetRowReader::estimatedRowSize() const {
