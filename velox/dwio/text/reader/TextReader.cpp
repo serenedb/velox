@@ -486,7 +486,12 @@ uint64_t TextRowReader::next(
     uint64_t rows,
     VectorPtr& result,
     const Mutation* mutation) {
-  return nextImpl(0, rows, result, mutation);
+  result->resize(static_cast<vector_size_t>(rows));
+  auto accepted = nextImpl(0, rows, result, mutation);
+  result->resize(static_cast<vector_size_t>(accepted));
+  auto rowVecPtr = std::dynamic_pointer_cast<RowVector>(result);
+  processMutation(rowVecPtr, mutation, constantSpecs_);
+  return accepted;
 }
 
 uint64_t TextRowReader::nextImpl(
@@ -499,9 +504,7 @@ uint64_t TextRowReader::nextImpl(
   }
 
   const auto startRow = currentRow_;
-  RowVectorPtr rowVecPtr = std::dynamic_pointer_cast<RowVector>(result);
-  rowVecPtr->resize(static_cast<vector_size_t>(inputVectorOffset + rows));
-  auto& children = rowVecPtr->children();
+  auto& children = result->asChecked<RowVector>()->children();
 
   const auto& fileType = getFileType();
   const auto& fileTypes = fileType.children();
@@ -589,13 +592,8 @@ uint64_t TextRowReader::nextImpl(
     }
   }
 
-  // Resize the row vector to the actual number of rows read.
-  // Handled here for both cases: pos_ > fileLength_ and pos_ > limit_
-  rowVecPtr->resize(acceptedRows);
-  processMutation(rowVecPtr, mutation, constantSpecs_);
-  result = std::move(rowVecPtr);
   VELOX_DCHECK_GE(currentRow_, startRow);
-  return currentRow_ - startRow;
+  return acceptedRows - inputVectorOffset;
 }
 
 uint64_t TextRowReader::seekToRow(uint64_t rowNumber) {
@@ -616,6 +614,9 @@ uint64_t TextRowReader::nextAtOffset(
     uint64_t size,
     VectorPtr& result) {
   VELOX_DCHECK_NOT_NULL(fileInputStream_);
+  VELOX_DCHECK_GE(
+      result->size(),
+      inputVectorOffset + static_cast<vector_size_t>(size));
   fileInputStream_->resetPosition(fileOffset);
   pos_ = fileOffset;
   atEOL_ = false;
