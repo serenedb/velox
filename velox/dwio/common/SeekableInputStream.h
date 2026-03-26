@@ -125,6 +125,12 @@ class SeekableFileInputStream : public SeekableInputStream {
   virtual std::string getName() const override;
   virtual size_t positionSize() const override;
 
+  void resetPosition(uint64_t position) {
+    VELOX_DCHECK_LE(position, length_, "seek past end");
+    position_ = position;
+    pushback_ = 0;
+  }
+
  private:
   const std::shared_ptr<ReadFileInputStream> input_;
   const LogType logType_;

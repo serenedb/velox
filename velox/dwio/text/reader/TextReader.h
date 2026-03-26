@@ -117,6 +117,15 @@ class TextRowReader : public dwio::common::RowReader {
 
   uint64_t seekToRow(uint64_t rowNumber);
 
+  /// Seek to a byte offset in the file and read rows, writing into the result
+  /// vector starting at `writeOffset`. The byte offset must point to the exact
+  /// start of a line.
+  uint64_t nextAtOffset(
+      uint64_t fileOffset,
+      vector_size_t inputVectorOffset,
+      uint64_t size,
+      VectorPtr& result);
+
  private:
   const RowType& getFileType() const;
 
@@ -231,6 +240,14 @@ class TextRowReader : public dwio::common::RowReader {
   };
   std::vector<FileColumnDesc> fileColumns_;
   std::vector<const velox::common::ScanSpec*> constantSpecs_;
+  int64_t rowIndexChannel_ = kNotProjected;
+  dwio::common::SeekableFileInputStream* fileInputStream_ = nullptr;
+
+  uint64_t nextImpl(
+      vector_size_t inputVectorOffset,
+      uint64_t size,
+      VectorPtr& result,
+      const Mutation* mutation = nullptr);
 
   void initializeColumnReaders();
 
