@@ -50,6 +50,13 @@ class SelectiveFloatingPointColumnReader : public SelectiveColumnReader {
     getFlatValues<TData, TRequested>(rows, result, requestedType_);
   }
 
+  void getValues(
+      const RowSet& rows,
+      VectorPtr* result,
+      vector_size_t outputOffset) override {
+    getFlatValuesAtOffset<TData, TRequested>(rows, result, outputOffset);
+  }
+
  protected:
   template <
       typename Reader,

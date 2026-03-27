@@ -385,6 +385,45 @@ void SelectiveStructColumnReaderBase::next(
   }
 }
 
+void SelectiveStructColumnReaderBase::nextAtOffset(
+    uint64_t numValues,
+    VectorPtr& result,
+    const Mutation* mutation,
+    vector_size_t outputOffset) {
+  process::TraceContext trace(
+      "SelectiveStructColumnReaderBase::nextAtOffset");
+  mutation_ = mutation;
+  hasDeletion_ = common::hasDeletion(mutation);
+  const RowSet rows(iota(numValues, rows_), numValues);
+  VELOX_CHECK(
+      !children_.empty(),
+      "nextAtOffset requires child readers");
+  read(readOffset_, rows, nullptr);
+
+  // Force-read children that were skipped as lazy during read().
+  auto activeRows = outputRows();
+  if (generateLazyChildren_ && !activeRows.empty()) {
+    const uint64_t* structNulls = nulls();
+    for (const auto& childSpec : scanSpec_->children()) {
+      if (!childSpec->readFromFile() || isChildConstant(*childSpec)) {
+        continue;
+      }
+      auto fieldIndex = childSpec->subscript();
+      if (fieldIndex == kConstantChildSpecSubscript) {
+        continue;
+      }
+      auto* reader = children_.at(fieldIndex);
+      if (reader->isTopLevel() && childSpec->projectOut() &&
+          !childSpec->hasFilter()) {
+        advanceFieldReader(reader, lazyVectorReadOffset_);
+        reader->read(lazyVectorReadOffset_, activeRows, structNulls);
+      }
+    }
+  }
+
+  getValues(outputRows(), &result, outputOffset);
+}
+
 void SelectiveStructColumnReaderBase::read(
     int64_t offset,
     const RowSet& rows,
@@ -626,6 +665,56 @@ void SelectiveStructColumnReaderBase::getValues(
         childResult);
   }
   resultRow->updateContainsLazyNotLoaded();
+}
+
+void SelectiveStructColumnReaderBase::getValues(
+    const RowSet& rows,
+    VectorPtr* result,
+    vector_size_t outputOffset) {
+  VELOX_CHECK(!scanSpec_->children().empty());
+  VELOX_CHECK_NOT_NULL(
+      *result, "SelectiveStructColumnReaderBase expects a non-null result");
+  VELOX_CHECK(
+      result->get()->type()->isRow(),
+      "Struct reader expects a result of type ROW.");
+  auto& rowType = result->get()->type()->asRow();
+  auto* resultRow = static_cast<RowVector*>(result->get());
+  // Do not resize — the result is pre-allocated by the caller.
+  if (rows.empty()) {
+    return;
+  }
+
+  setComplexNullsAtOffset(rows, *result, outputOffset);
+  auto numRows = static_cast<vector_size_t>(rows.size());
+  for (const auto& childSpec : scanSpec_->children()) {
+    if (!childSpec->keepValues()) {
+      continue;
+    }
+
+    const auto channel = childSpec->channel();
+    const auto index = childSpec->subscript();
+    auto& childResult = resultRow->childAt(channel);
+
+    if (childSpec->isConstant()) {
+      auto constant = childSpec->constantValue();
+      for (vector_size_t i = 0; i < numRows; ++i) {
+        childResult->copy(constant.get(), outputOffset + i, 0, 1);
+      }
+      continue;
+    }
+
+    if (index == kConstantChildSpecSubscript) {
+      auto* nullsBuf =
+          childResult->mutableNulls(outputOffset + numRows)
+              ->asMutable<uint64_t>();
+      bits::fillBits(nullsBuf, outputOffset, outputOffset + numRows, false);
+      continue;
+    }
+
+    // All children should have been read (either eagerly in read() or
+    // force-read in nextAtOffset).
+    children_[index]->getValues(rows, &childResult, outputOffset);
+  }
 }
 
 namespace detail {

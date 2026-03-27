@@ -165,6 +165,49 @@ void SelectiveColumnReader::getFlatValues<int8_t, bool>(
     bool isFinal);
 
 template <typename T, typename TVector>
+void SelectiveColumnReader::getFlatValuesAtOffset(
+    const RowSet& rows,
+    VectorPtr* result,
+    vector_size_t outputOffset) {
+  VELOX_CHECK_NE(valueSize_, kNoValueSize);
+  VELOX_CHECK(mayGetValues_);
+  mayGetValues_ = false;
+
+  auto numRows = static_cast<vector_size_t>(rows.size());
+
+  if (allNull_) {
+    auto* resultFlat = (*result)->asUnchecked<FlatVector<TVector>>();
+    auto* resultNulls =
+        (*result)->mutableNulls(outputOffset + numRows)->asMutable<uint64_t>();
+    bits::fillBits(resultNulls, outputOffset, outputOffset + numRows, false);
+    return;
+  }
+
+  if (valueSize_ == sizeof(TVector)) {
+    compactScalarValues<TVector, TVector>(rows, true);
+  } else if (sizeof(T) >= sizeof(TVector)) {
+    compactScalarValues<T, TVector>(rows, true);
+  } else {
+    upcastScalarValues<T, TVector>(rows);
+  }
+  valueSize_ = sizeof(TVector);
+
+  auto* dest =
+      (*result)->asUnchecked<FlatVector<TVector>>()->mutableRawValues() +
+      outputOffset;
+  auto* src = reinterpret_cast<const TVector*>(rawValues_);
+  std::memcpy(dest, src, numValues_ * sizeof(TVector));
+
+  if (auto nulls = resultNulls()) {
+    auto* destNulls =
+        (*result)->mutableNulls(outputOffset + numRows)->asMutable<uint64_t>();
+    bits::copyBits(nulls->as<uint64_t>(), 0, destNulls, outputOffset, numRows);
+  } else {
+    (*result)->clearNulls(outputOffset, outputOffset + numRows);
+  }
+}
+
+template <typename T, typename TVector>
 void SelectiveColumnReader::upcastScalarValues(const RowSet& rows) {
   VELOX_CHECK_LE(rows.size(), numValues_);
   VELOX_CHECK(!rows.empty());

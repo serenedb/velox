@@ -74,6 +74,15 @@ class ParquetRowReader : public dwio::common::RowReader {
   // in the file). The row group must be in the current read set.
   void seekToRowGroup(uint32_t rowGroupIndex);
 
+  /// Like next(), but writes the surviving rows into 'result' starting at
+  /// 'outputOffset'. The result vector must be pre-allocated with sufficient
+  /// size. Returns the number of rows scanned (including deleted).
+  uint64_t nextAtOffset(
+      uint64_t size,
+      vector_size_t outputOffset,
+      velox::VectorPtr& result,
+      const dwio::common::Mutation* mutation);
+
  private:
   // Compares row group  metadata to filters in ScanSpec in options of
   // ReaderBase and determines the set of row groups to scan.

@@ -39,6 +39,13 @@ class SelectiveIntegerColumnReader : public SelectiveColumnReader {
     getIntValues(rows, requestedType_, result);
   }
 
+  void getValues(
+      const RowSet& rows,
+      VectorPtr* result,
+      vector_size_t outputOffset) override {
+    getIntValuesAtOffset(rows, requestedType_, result, outputOffset);
+  }
+
  protected:
   // Switches based on filter type between different readHelper instantiations.
   template <

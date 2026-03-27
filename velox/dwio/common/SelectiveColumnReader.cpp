@@ -335,6 +335,148 @@ void SelectiveColumnReader::getUnsignedIntValues(
   }
 }
 
+// Macro to reduce repetition in getInt/UnsignedIntValuesAtOffset.
+#define INT_AT_OFFSET_CASE(SrcType, DestType) \
+  getFlatValuesAtOffset<SrcType, DestType>(rows, result, outputOffset)
+
+void SelectiveColumnReader::getIntValuesAtOffset(
+    const RowSet& rows,
+    const TypePtr& requestedType,
+    VectorPtr* result,
+    vector_size_t outputOffset) {
+  switch (requestedType->kind()) {
+    case TypeKind::SMALLINT:
+      switch (valueSize_) {
+        case 8:
+          INT_AT_OFFSET_CASE(int64_t, int16_t);
+          break;
+        case 4:
+          INT_AT_OFFSET_CASE(int32_t, int16_t);
+          break;
+        case 2:
+          INT_AT_OFFSET_CASE(int16_t, int16_t);
+          break;
+        default:
+          VELOX_FAIL("Unsupported value size: {}", valueSize_);
+      }
+      break;
+    case TypeKind::TINYINT:
+      switch (valueSize_) {
+        case 4:
+          INT_AT_OFFSET_CASE(int32_t, int8_t);
+          break;
+        case 2:
+          INT_AT_OFFSET_CASE(int16_t, int8_t);
+          break;
+        default:
+          VELOX_FAIL("Unsupported value size: {}", valueSize_);
+      }
+      break;
+    case TypeKind::INTEGER:
+      switch (valueSize_) {
+        case 8:
+          INT_AT_OFFSET_CASE(int64_t, int32_t);
+          break;
+        case 4:
+          INT_AT_OFFSET_CASE(int32_t, int32_t);
+          break;
+        case 2:
+          INT_AT_OFFSET_CASE(int16_t, int32_t);
+          break;
+        default:
+          VELOX_FAIL("Unsupported value size: {}", valueSize_);
+      }
+      break;
+    case TypeKind::HUGEINT:
+      INT_AT_OFFSET_CASE(int128_t, int128_t);
+      break;
+    case TypeKind::BIGINT:
+      switch (valueSize_) {
+        case 8:
+          INT_AT_OFFSET_CASE(int64_t, int64_t);
+          break;
+        case 4:
+          INT_AT_OFFSET_CASE(int32_t, int64_t);
+          break;
+        case 2:
+          INT_AT_OFFSET_CASE(int16_t, int64_t);
+          break;
+        default:
+          VELOX_FAIL("Unsupported value size: {}", valueSize_);
+      }
+      break;
+    default:
+      VELOX_FAIL(
+          "Not a valid type for integer reader: {}", requestedType->toString());
+  }
+}
+
+void SelectiveColumnReader::getUnsignedIntValuesAtOffset(
+    const RowSet& rows,
+    const TypePtr& requestedType,
+    VectorPtr* result,
+    vector_size_t outputOffset) {
+  switch (requestedType->kind()) {
+    case TypeKind::TINYINT:
+      switch (valueSize_) {
+        case 1:
+          INT_AT_OFFSET_CASE(uint8_t, uint8_t);
+          break;
+        default:
+          VELOX_FAIL("Unsupported value size: {}", valueSize_);
+      }
+      break;
+    case TypeKind::SMALLINT:
+      switch (valueSize_) {
+        case 2:
+          INT_AT_OFFSET_CASE(uint16_t, uint16_t);
+          break;
+        default:
+          VELOX_FAIL("Unsupported value size: {}", valueSize_);
+      }
+      break;
+    case TypeKind::INTEGER:
+      switch (valueSize_) {
+        case 4:
+          INT_AT_OFFSET_CASE(uint32_t, uint32_t);
+          break;
+        default:
+          VELOX_FAIL("Unsupported value size: {}", valueSize_);
+      }
+      break;
+    case TypeKind::BIGINT:
+      switch (valueSize_) {
+        case 4:
+          INT_AT_OFFSET_CASE(uint32_t, uint64_t);
+          break;
+        case 8:
+          INT_AT_OFFSET_CASE(uint64_t, uint64_t);
+          break;
+        default:
+          VELOX_FAIL("Unsupported value size: {}", valueSize_);
+      }
+      break;
+    case TypeKind::HUGEINT:
+      switch (valueSize_) {
+        case 8:
+          INT_AT_OFFSET_CASE(uint64_t, uint128_t);
+          break;
+        case 16:
+          INT_AT_OFFSET_CASE(uint128_t, uint128_t);
+          break;
+        default:
+          VELOX_FAIL("Unsupported value size: {}", valueSize_);
+      }
+      break;
+    default:
+      VELOX_FAIL(
+          "Not a valid type for unsigned integer reader: {}",
+          requestedType->toString());
+  }
+}
+
+#undef INT_AT_OFFSET_CASE
+
 template <>
 void SelectiveColumnReader::getFlatValues<int8_t, bool>(
     const RowSet& rows,
@@ -492,6 +634,44 @@ void SelectiveColumnReader::addSkippedParentNulls(
   }
   numParentNulls_ += numNulls;
   parentNullsRecordedTo_ = to;
+}
+
+void SelectiveColumnReader::setComplexNullsAtOffset(
+    const RowSet& rows,
+    VectorPtr& result,
+    vector_size_t outputOffset) const {
+  auto numRows = static_cast<vector_size_t>(rows.size());
+  if (!nullsInReadRange_) {
+    result->clearNulls(outputOffset, outputOffset + numRows);
+    return;
+  }
+
+  const bool dense = 1 + rows.back() == rows.size();
+  auto* readerNulls = nullsInReadRange_->as<uint64_t>();
+  auto* resultNulls =
+      result->mutableNulls(outputOffset + numRows)->asMutable<uint64_t>();
+  if (dense) {
+    bits::copyBits(readerNulls, 0, resultNulls, outputOffset, numRows);
+    return;
+  }
+  for (vector_size_t i = 0; i < numRows; ++i) {
+    bits::setBit(
+        resultNulls,
+        outputOffset + i,
+        bits::isBitSet(readerNulls, rows[i]));
+  }
+}
+
+void SelectiveColumnReader::getValues(
+    const RowSet& rows,
+    VectorPtr* result,
+    vector_size_t outputOffset) {
+  // Default: read into a temporary vector, then copy at offset.
+  VectorPtr temp;
+  getValues(rows, &temp);
+  if (temp && temp->size() > 0) {
+    (*result)->copy(temp.get(), outputOffset, 0, temp->size());
+  }
 }
 
 } // namespace facebook::velox::dwio::common

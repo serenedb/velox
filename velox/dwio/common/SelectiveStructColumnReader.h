@@ -37,6 +37,14 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
 
   void next(uint64_t numValues, VectorPtr& result, const Mutation*) override;
 
+  /// Like next(), but writes the surviving rows into 'result' starting at
+  /// 'outputOffset'. The result vector must be pre-allocated.
+  void nextAtOffset(
+      uint64_t numValues,
+      VectorPtr& result,
+      const Mutation* mutation,
+      vector_size_t outputOffset);
+
   void filterRowGroups(
       uint64_t rowGroupSize,
       const dwio::common::StatsContext& context,
@@ -46,6 +54,9 @@ class SelectiveStructColumnReaderBase : public SelectiveColumnReader {
       override;
 
   void getValues(const RowSet& rows, VectorPtr* result) override;
+
+  void getValues(const RowSet& rows, VectorPtr* result, vector_size_t outputOffset)
+      override;
 
   uint64_t numReads() const {
     return numReads_;

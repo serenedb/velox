@@ -1326,6 +1326,23 @@ class ParquetRowReader::Impl {
     return rowsToRead;
   }
 
+  uint64_t nextAtOffset(
+      uint64_t size,
+      vector_size_t outputOffset,
+      velox::VectorPtr& result,
+      const dwio::common::Mutation* mutation) {
+    auto rowsToRead = nextReadSize(size);
+    if (rowsToRead == kAtEnd) {
+      return 0;
+    }
+    VELOX_DCHECK_GT(rowsToRead, 0);
+    columnReader_->setCurrentRowNumber(nextRowNumber());
+    static_cast<dwio::common::SelectiveStructColumnReaderBase&>(*columnReader_)
+        .nextAtOffset(rowsToRead, result, mutation, outputOffset);
+    currentRowInGroup_ += rowsToRead;
+    return rowsToRead;
+  }
+
   std::optional<size_t> estimatedRowSize() const {
     auto index =
         nextRowGroupIdsIdx_ < 1 ? 0 : rowGroupIds_[nextRowGroupIdsIdx_ - 1];
@@ -1452,6 +1469,14 @@ bool ParquetRowReader::isRowGroupBuffered(int32_t rowGroupIndex) const {
 
 void ParquetRowReader::seekToRowGroup(uint32_t rowGroupIndex) {
   impl_->seekToRowGroup(rowGroupIndex);
+}
+
+uint64_t ParquetRowReader::nextAtOffset(
+    uint64_t size,
+    vector_size_t outputOffset,
+    velox::VectorPtr& result,
+    const dwio::common::Mutation* mutation) {
+  return impl_->nextAtOffset(size, outputOffset, result, mutation);
 }
 
 std::optional<size_t> ParquetRowReader::estimatedRowSize() const {

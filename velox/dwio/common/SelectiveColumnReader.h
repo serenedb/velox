@@ -180,6 +180,14 @@ class SelectiveColumnReader {
   /// last 'read().
   virtual void getValues(const RowSet& rows, VectorPtr* result) = 0;
 
+  /// Extracts values at 'rows' into '*result' at 'outputOffset'. The result
+  /// vector must be pre-allocated with sufficient size. Default implementation
+  /// calls getValues() and copies at offset.
+  virtual void getValues(
+      const RowSet& rows,
+      VectorPtr* result,
+      vector_size_t outputOffset);
+
   // Returns the rows that were selected/visited by the last
   // read(). If 'this' has no filter, returns 'rows' passed to last
   // read().
@@ -556,12 +564,24 @@ class SelectiveColumnReader {
       const TypePtr& requestedType,
       VectorPtr* result);
 
+  void getIntValuesAtOffset(
+      const RowSet& rows,
+      const TypePtr& requestedType,
+      VectorPtr* result,
+      vector_size_t outputOffset);
+
   /// Returns integer values for 'rows' cast to the width of 'requestedType' in
   /// '*result', the related fileDataType is unsigned int type.
   void getUnsignedIntValues(
       const RowSet& rows,
       const TypePtr& requestedType,
       VectorPtr* result);
+
+  void getUnsignedIntValuesAtOffset(
+      const RowSet& rows,
+      const TypePtr& requestedType,
+      VectorPtr* result,
+      vector_size_t outputOffset);
 
   // Returns read values for 'rows' in 'vector'. This can be called
   // multiple times for consecutive subsets of 'rows'. If 'isFinal' is
@@ -574,6 +594,14 @@ class SelectiveColumnReader {
       const TypePtr& type,
       bool isFinal = false);
 
+  // Like getFlatValues, but writes compacted values into a pre-allocated
+  // '*result' at 'outputOffset' instead of creating a new vector.
+  template <typename T, typename TVector>
+  void getFlatValuesAtOffset(
+      const RowSet& rows,
+      VectorPtr* result,
+      vector_size_t outputOffset);
+
   template <typename T, typename TVector>
   void compactScalarValues(const RowSet& rows, bool isFinal);
 
@@ -584,6 +612,11 @@ class SelectiveColumnReader {
   // shrinked.  Child fields are handled recursively in their own column
   // readers.
   void setComplexNulls(const RowSet& rows, VectorPtr& result) const;
+
+  void setComplexNullsAtOffset(
+      const RowSet& rows,
+      VectorPtr& result,
+      vector_size_t outputOffset) const;
 
   // Return the source null bits if compactScalarValues and upcastScalarValues
   // should move null flags.  Return nullptr if nulls does not need to be moved.
