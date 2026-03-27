@@ -132,6 +132,10 @@ void registerMathFunctions(const std::string& prefix) {
       float,
       Array<float>,
       Array<float>>({prefix + "cosine_similarity"});
+  registerFunction<L1FunctionFloatArray, float, Array<float>, Array<float>>(
+      {prefix + "l1_distance"});
+  registerFunction<L1FunctionDoubleArray, double, Array<double>, Array<double>>(
+      {prefix + "l1_distance"});
   registerFunction<
       L2SquaredFunctionFloatArray,
       float,
