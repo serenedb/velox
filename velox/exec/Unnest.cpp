@@ -17,6 +17,7 @@
 #include "velox/exec/Unnest.h"
 #include "velox/common/base/Nulls.h"
 #include "velox/vector/FlatVector.h"
+#include "velox/vector/RangeVector.h"
 
 namespace facebook::velox::exec {
 namespace {
@@ -429,11 +430,21 @@ RowVectorPtr Unnest::generateOutput(const RowRange& range) {
     const auto& currentDecoded = unnestDecoded_[channel];
     const auto typeKind = currentDecoded.base()->typeKind();
     if (typeKind == TypeKind::ARRAY) {
-      // Construct unnest column using Array elements wrapped using above
-      // created dictionary.
       const auto* unnestBaseArray = currentDecoded.base()->as<ArrayVector>();
-      outputs[outputColumnIndex++] = unnestChannelEncoding.wrap(
-          unnestBaseArray->elements(), range.numInnerRows);
+      // RangeVector: compute elements on the fly for this batch only.
+      if (auto* rangeVec = dynamic_cast<const RangeVector*>(unnestBaseArray)) {
+        auto* rawIdx =
+            unnestChannelEncoding.indices->as<vector_size_t>();
+        auto elements = rangeVec->materializeElements(
+            rawIdx, range.numInnerRows, pool());
+        elements->setNulls(unnestChannelEncoding.nulls);
+        outputs[outputColumnIndex++] = std::move(elements);
+      } else {
+        // Construct unnest column using Array elements wrapped using above
+        // created dictionary.
+        outputs[outputColumnIndex++] = unnestChannelEncoding.wrap(
+            unnestBaseArray->elements(), range.numInnerRows);
+      }
     } else if (typeKind == TypeKind::MAP) {
       // Construct two unnest columns for Map keys and values vectors wrapped
       // using above created dictionary.
